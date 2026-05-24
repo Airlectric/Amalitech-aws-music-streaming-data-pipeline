@@ -38,3 +38,18 @@ variable "sns_alert_topic_arn" {
   type        = string
   default     = null
 }
+
+variable "bronze_bucket_id" {
+  description = "Bronze S3 bucket ID (name)"
+  type        = string
+}
+
+variable "silver_bucket_id" {
+  description = "Silver S3 bucket ID (name)"
+  type        = string
+}
+
+variable "gold_bucket_id" {
+  description = "Gold S3 bucket ID (name)"
+  type        = string
+}

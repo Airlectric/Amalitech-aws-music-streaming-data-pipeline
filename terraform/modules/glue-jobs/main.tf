@@ -45,11 +45,9 @@ resource "aws_glue_job" "silver_etl" {
   default_arguments = {
     "--job-language"          = "python"
     "--job-bookmark-option"   = "job-bookmark-enable"
-    "--enable-spark-ui"       = "true"
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-metrics"        = "true"
     "--TempDir"               = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/silver/"
-    "--extra-py-files"        = ""
   }
 
   execution_property {
@@ -82,11 +80,9 @@ resource "aws_glue_job" "gold_etl" {
   default_arguments = {
     "--job-language"          = "python"
     "--job-bookmark-option"   = "job-bookmark-enable"
-    "--enable-spark-ui"       = "true"
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-metrics"        = "true"
     "--TempDir"               = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/gold/"
-    "--extra-py-files"        = ""
   }
 
   execution_property {
@@ -119,12 +115,9 @@ resource "aws_glue_job" "ddb_etl" {
   default_arguments = {
     "--job-language"          = "python"
     "--job-bookmark-option"   = "job-bookmark-disable"
-    "--enable-spark-ui"       = "true"
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-metrics"        = "true"
     "--TempDir"               = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/ddb/"
-    "--extra-py-files"        = ""
-
     "--dynamodb.splits"       = "10"
     "--dynamodb.throughput.write.percent" = "0.5"
   }

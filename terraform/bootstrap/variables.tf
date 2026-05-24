@@ -20,3 +20,9 @@ variable "aws_region" {
   type        = string
   default     = "us-east-1"
 }
+
+variable "github_repo" {
+  description = "GitHub repository in format 'owner/repo' for OIDC trust policy"
+  type        = string
+  default     = ""
+}

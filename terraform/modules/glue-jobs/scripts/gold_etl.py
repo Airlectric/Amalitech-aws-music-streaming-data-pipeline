@@ -1,20 +1,21 @@
 import sys
 from datetime import datetime
+from awsglue.utils import getResolvedOptions
 from pyspark.sql import SparkSession, functions as F
 
-SILVER_PATH = sys.argv[1]
-GOLD_PATH = sys.argv[2]
+args = getResolvedOptions(sys.argv, ["silver_path", "gold_path"])
+silver_path = args["silver_path"]
+gold_path = args["gold_path"]
 
 spark = SparkSession.builder.appName("GoldETL").getOrCreate()
 spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
 
-df = spark.read.parquet(SILVER_PATH)
+df = spark.read.parquet(silver_path)
 
 agg = (
     df
     .groupBy(
-        "artist_id",
-        "artist_name",
+        "artist",
         "year",
         "month",
         "day",
@@ -23,8 +24,7 @@ agg = (
     .agg(
         F.count("*").alias("total_streams"),
         F.countDistinct("user_id").alias("unique_listeners"),
-        F.avg("play_duration_seconds").alias("avg_play_duration_seconds"),
-        F.avg(F.when(F.col("skipped") == True, 1).otherwise(0)).alias("skip_rate"),
+        F.avg("listen_time_s").alias("avg_listen_time_s"),
     )
     .withColumn("window_start", F.concat_ws(
         "-",
@@ -38,6 +38,6 @@ agg = (
     .withColumn("processing_timestamp", F.lit(datetime.utcnow().isoformat()))
 )
 
-agg.write.mode("overwrite").partitionBy("year", "month", "day", "hour").parquet(GOLD_PATH)
+agg.write.mode("overwrite").partitionBy("year", "month", "day", "hour").parquet(gold_path)
 
 spark.stop()

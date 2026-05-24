@@ -98,6 +98,109 @@ resource "aws_s3_bucket_lifecycle_configuration" "state" {
   }
 }
 
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com",
+  ]
+
+  thumbprint_list = [
+    "ffffffffffffffffffffffffffffffffffffffff", # placeholder — replace with actual thumbprint
+  ]
+}
+
+resource "aws_iam_role" "github_actions" {
+  name = "${var.environment}-github-actions-terraform"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "GitHubOIDC"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+          }
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy" "github_actions" {
+  name = "${var.environment}-github-actions-terraform"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ManageStateBackend"
+        Effect = "Allow"
+        Action = [
+          "s3:*",
+          "dynamodb:*",
+          "kms:*",
+        ]
+        Resource = [
+          aws_s3_bucket.state.arn,
+          "${aws_s3_bucket.state.arn}/*",
+          aws_dynamodb_table.state_lock.arn,
+          aws_kms_key.state.arn,
+        ]
+      },
+      {
+        Sid    = "ManageInfrastructure"
+        Effect = "Allow"
+        Action = [
+          "acm:*",
+          "athena:*",
+          "cloudformation:*",
+          "cloudwatch:*",
+          "dynamodb:*",
+          "ec2:*",
+          "events:*",
+          "glue:*",
+          "iam:*",
+          "kms:*",
+          "lambda:*",
+          "logs:*",
+          "s3:*",
+          "sns:*",
+          "states:*",
+        ]
+        Resource = ["*"]
+      },
+      {
+        Sid    = "PassRoles"
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
+        Resource = ["*"]
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = [
+              "glue.amazonaws.com",
+              "lambda.amazonaws.com",
+              "states.amazonaws.com",
+            ]
+          }
+        }
+      },
+    ]
+  })
+}
+
 resource "aws_dynamodb_table" "state_lock" {
   name         = var.lock_table_name
   billing_mode = "PAY_PER_REQUEST"

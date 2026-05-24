@@ -104,6 +104,9 @@ module "step_functions" {
 
   step_functions_role_arn = module.iam_roles.step_functions_role_arn
   sns_alert_topic_arn     = aws_sns_topic.alerts.arn
+  bronze_bucket_id        = module.s3_data_lake.bronze_bucket_id
+  silver_bucket_id        = module.s3_data_lake.silver_bucket_id
+  gold_bucket_id          = module.s3_data_lake.gold_bucket_id
 }
 
 module "eventbridge" {

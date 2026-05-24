@@ -21,8 +21,8 @@ locals {
         Parameters = {
           JobName = var.glue_silver_job_name
           Arguments = {
-            "--bronze_path" = "s3://${var.environment == "dev" ? "bronze" : var.environment}-${var.environment}-data/"
-            "--silver_path" = "s3://${var.environment == "dev" ? "silver" : var.environment}-${var.environment}-data/"
+            "--bronze_path" = "s3://${var.bronze_bucket_id}/"
+            "--silver_path" = "s3://${var.silver_bucket_id}/"
           }
         }
         Next = "RunGoldETL"
@@ -40,8 +40,8 @@ locals {
         Parameters = {
           JobName = var.glue_gold_job_name
           Arguments = {
-            "--silver_path" = "s3://${var.environment == "dev" ? "silver" : var.environment}-${var.environment}-data/"
-            "--gold_path"   = "s3://${var.environment == "dev" ? "gold" : var.environment}-${var.environment}-data/"
+            "--silver_path" = "s3://${var.silver_bucket_id}/"
+            "--gold_path"   = "s3://${var.gold_bucket_id}/"
           }
         }
         Next = "RunDDBETL"
@@ -58,7 +58,12 @@ locals {
         Resource      = "arn:aws:states:::glue:startJobRun.sync"
         Parameters = {
           JobName = var.glue_ddb_job_name
-          Arguments = {}
+          Arguments = {
+            "--gold_path"     = "s3://${var.gold_bucket_id}/"
+            "--table_hourly"  = "${var.environment}-kpi-hourly-streams"
+            "--table_daily"   = "${var.environment}-kpi-daily-streams"
+            "--table_monthly" = "${var.environment}-kpi-monthly-streams"
+          }
         }
         Next = "ArchiveFiles"
         Catch = [
@@ -85,7 +90,7 @@ locals {
         Type         = "Task"
         Resource     = "arn:aws:states:::sns:publish"
         Parameters = {
-          TopicArn   = var.sns_alert_topic_arn != null ? var.sns_alert_topic_arn : "arn:aws:sns:us-east-1:000000000000:placeholder"
+          TopicArn   = var.sns_alert_topic_arn
           Message    = "Medallion pipeline failed for execution $$.Execution.Id at state $$.State.Name"
           Subject    = "Pipeline Failure: $$.Execution.Id"
         }

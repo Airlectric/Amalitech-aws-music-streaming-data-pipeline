@@ -32,3 +32,8 @@ output "kms_key_alias" {
   description = "Alias of the KMS CMK for state encryption"
   value       = aws_kms_alias.state.name
 }
+
+output "github_actions_role_arn" {
+  description = "ARN of the IAM role for GitHub Actions"
+  value       = aws_iam_role.github_actions.arn
+}
