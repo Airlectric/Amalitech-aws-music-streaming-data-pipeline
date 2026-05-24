@@ -42,6 +42,24 @@ module "glue_catalog" {
   gold_bucket_id   = module.s3_data_lake.gold_bucket_id
 }
 
+module "glue_jobs" {
+  source      = "../../modules/glue-jobs"
+  environment = var.environment
+
+  glue_scripts_bucket_id = module.s3_data_lake.glue_scripts_bucket_id
+  bronze_bucket_id       = module.s3_data_lake.bronze_bucket_id
+  silver_bucket_id       = module.s3_data_lake.silver_bucket_id
+  gold_bucket_id         = module.s3_data_lake.gold_bucket_id
+
+  glue_silver_role_arn    = module.iam_roles.glue_silver_role_arn
+  glue_gold_role_arn      = module.iam_roles.glue_gold_role_arn
+  glue_ddb_role_arn       = module.iam_roles.glue_ddb_role_arn
+  dynamodb_kpi_table_names = module.dynamodb_kpi.table_names_map
+
+  private_subnet_id       = module.networking.private_subnet_id
+  security_group_glue_id  = module.networking.security_group_glue_id
+}
+
 module "iam_roles" {
   source      = "../../modules/iam-roles"
   environment = var.environment

@@ -48,6 +48,21 @@ output "s3_bucket_arns" {
   value       = module.s3_data_lake.bucket_arns
 }
 
+output "glue_silver_etl_job_name" {
+  description = "Name of the Silver ETL Glue job"
+  value       = module.glue_jobs.silver_etl_job_name
+}
+
+output "glue_gold_etl_job_name" {
+  description = "Name of the Gold ETL Glue job"
+  value       = module.glue_jobs.gold_etl_job_name
+}
+
+output "glue_ddb_etl_job_name" {
+  description = "Name of the DDB ETL Glue job"
+  value       = module.glue_jobs.ddb_etl_job_name
+}
+
 output "glue_bronze_database_name" {
   description = "Name of the Bronze Glue database"
   value       = module.glue_catalog.bronze_database_name
