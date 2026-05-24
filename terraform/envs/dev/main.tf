@@ -89,6 +89,15 @@ module "step_functions" {
   sns_alert_topic_arn     = var.sns_alert_topic_arn
 }
 
+module "eventbridge" {
+  source      = "../../modules/eventbridge"
+  environment = var.environment
+
+  bronze_bucket_id        = module.s3_data_lake.bronze_bucket_id
+  event_router_lambda_arn = module.lambda_functions.event_router_arn
+  eventbridge_role_arn    = module.iam_roles.eventbridge_role_arn
+}
+
 module "iam_roles" {
   source      = "../../modules/iam-roles"
   environment = var.environment

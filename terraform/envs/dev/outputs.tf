@@ -48,6 +48,11 @@ output "s3_bucket_arns" {
   value       = module.s3_data_lake.bucket_arns
 }
 
+output "eventbridge_rule_arn" {
+  description = "ARN of the EventBridge S3 rule"
+  value       = module.eventbridge.event_rule_arn
+}
+
 output "step_functions_arn" {
   description = "ARN of the medallion pipeline state machine"
   value       = module.step_functions.state_machine_arn
