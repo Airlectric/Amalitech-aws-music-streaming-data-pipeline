@@ -48,6 +48,16 @@ output "s3_bucket_arns" {
   value       = module.s3_data_lake.bucket_arns
 }
 
+output "dynamodb_kpi_table_arns_map" {
+  description = "Map of DynamoDB KPI table names to ARNs"
+  value       = module.dynamodb_kpi.table_arns_map
+}
+
+output "dynamodb_kpi_table_names" {
+  description = "List of DynamoDB KPI table names"
+  value       = module.dynamodb_kpi.table_names
+}
+
 output "iam_role_arns" {
   description = "Map of all IAM role ARNs by name"
   value       = module.iam_roles.role_arns

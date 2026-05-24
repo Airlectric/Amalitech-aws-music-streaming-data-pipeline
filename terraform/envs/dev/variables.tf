@@ -33,12 +33,6 @@ variable "bucket_suffix" {
   type        = string
 }
 
-variable "dynamodb_kpi_table_arns" {
-  description = "ARNs of the DynamoDB KPI tables"
-  type        = list(string)
-  default     = []
-}
-
 variable "step_functions_arn" {
   description = "ARN of the Step Functions state machine"
   type        = string
