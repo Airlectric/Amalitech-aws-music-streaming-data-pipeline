@@ -158,6 +158,16 @@ output "step_functions_role_arn" {
   value       = module.iam_roles.step_functions_role_arn
 }
 
+output "sns_topic_arn" {
+  description = "ARN of the SNS pipeline alert topic"
+  value       = aws_sns_topic.alerts.arn
+}
+
+output "cloudwatch_dashboard_name" {
+  description = "Name of the CloudWatch pipeline dashboard"
+  value       = module.observability.dashboard_name
+}
+
 output "athena_workgroup_name" {
   description = "Name of the Athena analytics workgroup"
   value       = module.athena.workgroup_name

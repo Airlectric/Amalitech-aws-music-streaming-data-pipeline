@@ -1,5 +1,22 @@
 data "aws_caller_identity" "current" {}
 
+resource "aws_sns_topic" "alerts" {
+  name = "${var.environment}-pipeline-alerts"
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+    Name        = "${var.environment}-pipeline-alerts"
+  }
+}
+
+resource "aws_sns_topic_subscription" "alerts_email" {
+  count     = var.sns_alert_email != "" ? 1 : 0
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.sns_alert_email
+}
+
 module "kms" {
   source      = "../../modules/kms"
   environment = var.environment
@@ -86,7 +103,7 @@ module "step_functions" {
   glue_ddb_job_name    = module.glue_jobs.ddb_etl_job_name
 
   step_functions_role_arn = module.iam_roles.step_functions_role_arn
-  sns_alert_topic_arn     = var.sns_alert_topic_arn
+  sns_alert_topic_arn     = aws_sns_topic.alerts.arn
 }
 
 module "eventbridge" {
@@ -106,6 +123,18 @@ module "athena" {
   kms_key_arn               = module.kms.s3_data_lake_key_arn
 }
 
+module "observability" {
+  source      = "../../modules/observability"
+  environment = var.environment
+
+  lambda_function_names               = module.lambda_functions.function_names
+  glue_job_names                      = module.glue_jobs.job_names
+  step_functions_state_machine_arn    = module.step_functions.state_machine_arn
+  eventbridge_rule_name               = module.eventbridge.event_rule_name
+  sns_topic_arn                       = aws_sns_topic.alerts.arn
+  s3_bronze_bucket_name               = module.s3_data_lake.bronze_bucket_id
+}
+
 module "iam_roles" {
   source      = "../../modules/iam-roles"
   environment = var.environment
@@ -115,5 +144,5 @@ module "iam_roles" {
   kms_key_arns  = module.kms.key_arns
 
   dynamodb_kpi_table_arns = module.dynamodb_kpi.table_arns
-  sns_alert_topic_arn     = var.sns_alert_topic_arn
+  sns_alert_topic_arn     = aws_sns_topic.alerts.arn
 }

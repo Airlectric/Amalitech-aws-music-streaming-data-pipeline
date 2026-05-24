@@ -481,9 +481,8 @@ resource "aws_iam_role_policy" "step_functions_lambda" {
 }
 
 resource "aws_iam_role_policy" "step_functions_sns" {
-  count = var.sns_alert_topic_arn != null ? 1 : 0
-  name  = "${var.environment}-sfn-sns"
-  role  = aws_iam_role.step_functions.id
+  name = "${var.environment}-sfn-sns"
+  role = aws_iam_role.step_functions.id
 
   policy = jsonencode({
     Version = "2012-10-17"

@@ -33,9 +33,9 @@ variable "bucket_suffix" {
   type        = string
 }
 
-variable "sns_alert_topic_arn" {
-  description = "ARN of the SNS alert topic"
+variable "sns_alert_email" {
+  description = "Email address for SNS alert subscriptions"
   type        = string
-  default     = null
+  default     = ""
 }
 
