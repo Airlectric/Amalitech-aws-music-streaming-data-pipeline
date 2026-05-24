@@ -1,21 +1,3 @@
-locals {
-  common_tags = {
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Domain      = "s3-data-lake"
-  }
-
-  bucket_name = {
-    bronze        = "bronze-${var.bucket_suffix}"
-    silver        = "silver-${var.bucket_suffix}"
-    gold          = "gold-${var.bucket_suffix}"
-    archive       = "archive-${var.bucket_suffix}"
-    glue_scripts  = "glue-scripts-${var.bucket_suffix}"
-    athena_results = "athena-results-${var.bucket_suffix}"
-    access_logs   = "s3-access-logs-${var.bucket_suffix}"
-  }
-}
-
 resource "aws_s3_bucket" "this" {
   for_each = local.bucket_name
 
@@ -78,10 +60,10 @@ resource "aws_s3_bucket_policy" "tls_only" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyInsecureConnections"
-        Effect = "Deny"
+        Sid       = "DenyInsecureConnections"
+        Effect    = "Deny"
         Principal = "*"
-        Action = "s3:*"
+        Action    = "s3:*"
         Resource = [
           aws_s3_bucket.this[each.key].arn,
           "${aws_s3_bucket.this[each.key].arn}/*",

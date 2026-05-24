@@ -468,13 +468,13 @@ resource "aws_iam_role_policy" "step_functions_lambda" {
         Sid      = "InvokeValidator"
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
-        Resource = var.lambda_validator_arn != null ? [var.lambda_validator_arn] : ["*"]
+        Resource = [local.lambda_validator_arn]
       },
       {
         Sid      = "InvokeArchiver"
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
-        Resource = var.lambda_archiver_arn != null ? [var.lambda_archiver_arn] : ["*"]
+        Resource = [local.lambda_archiver_arn]
       },
     ]
   })
@@ -540,7 +540,7 @@ resource "aws_iam_role_policy" "eventbridge_lambda" {
       Sid      = "InvokeEventRouter"
       Effect   = "Allow"
       Action   = ["lambda:InvokeFunction"]
-      Resource = var.lambda_event_router_arn != null ? [var.lambda_event_router_arn] : ["*"]
+      Resource = [local.lambda_event_router_arn]
     }]
   })
 }

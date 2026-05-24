@@ -102,7 +102,7 @@ resource "aws_lambda_function" "event_router" {
 
   environment {
     variables = {
-      STATE_MACHINE_ARN = var.step_functions_arn
+      STATE_MACHINE_ARN = local.step_functions_arn
     }
   }
 

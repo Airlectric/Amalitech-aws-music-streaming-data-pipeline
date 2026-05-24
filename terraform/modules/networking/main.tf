@@ -1,31 +1,3 @@
-locals {
-  common_tags = {
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Domain      = "networking"
-  }
-
-  vpc_endpoint_services = {
-    glue          = { service = "glue", private_dns = false }
-    states        = { service = "states", private_dns = true }
-    kms           = { service = "kms", private_dns = true }
-    logs          = { service = "logs", private_dns = true }
-    monitoring    = { service = "monitoring", private_dns = true }
-    sqs           = { service = "sqs", private_dns = false }
-    sns           = { service = "sns", private_dns = true }
-    secretsmanager = { service = "secretsmanager", private_dns = true }
-    sts           = { service = "sts", private_dns = true }
-    ecr_api       = { service = "ecr.api", private_dns = true }
-    ecr_dkr       = { service = "ecr.dkr", private_dns = true }
-    athena        = { service = "athena", private_dns = true }
-  }
-
-  gateway_endpoint_services = {
-    s3        = { service = "s3" }
-    dynamodb  = { service = "dynamodb" }
-  }
-}
-
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -110,8 +82,8 @@ resource "aws_security_group_rule" "lambda_egress_endpoints" {
 resource "aws_vpc_endpoint" "gateway" {
   for_each = local.gateway_endpoint_services
 
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${data.aws_region.current.name}.${each.value.service}"
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.${each.value.service}"
   vpc_endpoint_type = "Gateway"
 
   route_table_ids = [aws_route_table.private.id]
@@ -122,12 +94,12 @@ resource "aws_vpc_endpoint" "gateway" {
 resource "aws_vpc_endpoint" "interface" {
   for_each = local.vpc_endpoint_services
 
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${data.aws_region.current.name}.${each.value.service}"
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.${each.value.service}"
   vpc_endpoint_type = "Interface"
 
-  subnet_ids        = [aws_subnet.private.id]
-  security_group_ids = [aws_security_group.endpoints.id]
+  subnet_ids          = [aws_subnet.private.id]
+  security_group_ids  = [aws_security_group.endpoints.id]
   private_dns_enabled = try(each.value.private_dns, true)
 
   tags = merge(local.common_tags, { Name = "${var.environment}-vpce-${each.key}" })

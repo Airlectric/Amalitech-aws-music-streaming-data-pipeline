@@ -1,11 +1,3 @@
-locals {
-  common_tags = {
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Domain      = "state-backend"
-  }
-}
-
 data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
