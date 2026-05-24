@@ -25,3 +25,19 @@ module "s3_data_lake" {
   kms_key_arn      = module.kms.s3_data_lake_key_arn
   log_retention_days = 365
 }
+
+module "iam_roles" {
+  source      = "../../modules/iam-roles"
+  environment = var.environment
+  aws_region  = var.aws_region
+
+  bucket_arns   = module.s3_data_lake.bucket_arns
+  kms_key_arns  = module.kms.key_arns
+
+  dynamodb_kpi_table_arns = var.dynamodb_kpi_table_arns
+  step_functions_arn      = var.step_functions_arn
+  lambda_validator_arn    = var.lambda_validator_arn
+  lambda_archiver_arn     = var.lambda_archiver_arn
+  lambda_event_router_arn = var.lambda_event_router_arn
+  sns_alert_topic_arn     = var.sns_alert_topic_arn
+}

@@ -1,7 +1,6 @@
 variable "environment" {
   description = "Environment name"
   type        = string
-  default     = "dev"
 }
 
 variable "aws_region" {
@@ -10,31 +9,18 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-  default     = "10.0.0.0/16"
+variable "bucket_arns" {
+  description = "Map of S3 bucket ARNs by layer (bronze, silver, gold, archive, glue_scripts)"
+  type        = map(string)
 }
 
-variable "private_subnet_cidr" {
-  description = "CIDR block for the private subnet"
-  type        = string
-  default     = "10.0.10.0/24"
-}
-
-variable "availability_zone" {
-  description = "Availability zone for the private subnet"
-  type        = string
-  default     = "us-east-1a"
-}
-
-variable "bucket_suffix" {
-  description = "Unique suffix for S3 bucket names (e.g., account ID or project name)"
-  type        = string
+variable "kms_key_arns" {
+  description = "Map of KMS key ARNs by domain (s3_data_lake, dynamodb, logs, secrets)"
+  type        = map(string)
 }
 
 variable "dynamodb_kpi_table_arns" {
-  description = "ARNs of the DynamoDB KPI tables"
+  description = "ARNs of the DynamoDB KPI tables (populated after DDB module is created)"
   type        = list(string)
   default     = []
 }
@@ -68,4 +54,3 @@ variable "sns_alert_topic_arn" {
   type        = string
   default     = null
 }
-

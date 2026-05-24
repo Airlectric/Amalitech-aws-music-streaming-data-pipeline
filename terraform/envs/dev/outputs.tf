@@ -47,3 +47,53 @@ output "s3_bucket_arns" {
   description = "Map of all S3 bucket ARNs by layer"
   value       = module.s3_data_lake.bucket_arns
 }
+
+output "iam_role_arns" {
+  description = "Map of all IAM role ARNs by name"
+  value       = module.iam_roles.role_arns
+}
+
+output "glue_role_arns" {
+  description = "List of all Glue job role ARNs"
+  value       = module.iam_roles.glue_role_arns
+}
+
+output "glue_silver_role_arn" {
+  description = "ARN of the Glue Silver ETL role"
+  value       = module.iam_roles.glue_silver_role_arn
+}
+
+output "glue_gold_role_arn" {
+  description = "ARN of the Glue Gold ETL role"
+  value       = module.iam_roles.glue_gold_role_arn
+}
+
+output "glue_ddb_role_arn" {
+  description = "ARN of the Glue DDB ETL role"
+  value       = module.iam_roles.glue_ddb_role_arn
+}
+
+output "lambda_validator_role_arn" {
+  description = "ARN of the Lambda event-validator role"
+  value       = module.iam_roles.lambda_validator_role_arn
+}
+
+output "lambda_archiver_role_arn" {
+  description = "ARN of the Lambda stream-archiver role"
+  value       = module.iam_roles.lambda_archiver_role_arn
+}
+
+output "lambda_event_router_role_arn" {
+  description = "ARN of the Lambda event-router role"
+  value       = module.iam_roles.lambda_event_router_role_arn
+}
+
+output "step_functions_role_arn" {
+  description = "ARN of the Step Functions role"
+  value       = module.iam_roles.step_functions_role_arn
+}
+
+output "eventbridge_role_arn" {
+  description = "ARN of the EventBridge role"
+  value       = module.iam_roles.eventbridge_role_arn
+}
