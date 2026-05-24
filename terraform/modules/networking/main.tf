@@ -6,18 +6,18 @@ locals {
   }
 
   vpc_endpoint_services = {
-    glue          = { service = "glue" }
-    states        = { service = "states" }
-    kms           = { service = "kms" }
-    logs          = { service = "logs" }
-    monitoring    = { service = "monitoring" }
-    sqs           = { service = "sqs" }
-    sns           = { service = "sns" }
-    secretsmanager = { service = "secretsmanager" }
-    sts           = { service = "sts" }
-    ecr_api       = { service = "ecr.api" }
-    ecr_dkr       = { service = "ecr.dkr" }
-    athena        = { service = "athena" }
+    glue          = { service = "glue", private_dns = false }
+    states        = { service = "states", private_dns = true }
+    kms           = { service = "kms", private_dns = true }
+    logs          = { service = "logs", private_dns = true }
+    monitoring    = { service = "monitoring", private_dns = true }
+    sqs           = { service = "sqs", private_dns = false }
+    sns           = { service = "sns", private_dns = true }
+    secretsmanager = { service = "secretsmanager", private_dns = true }
+    sts           = { service = "sts", private_dns = true }
+    ecr_api       = { service = "ecr.api", private_dns = true }
+    ecr_dkr       = { service = "ecr.dkr", private_dns = true }
+    athena        = { service = "athena", private_dns = true }
   }
 
   gateway_endpoint_services = {
@@ -128,7 +128,7 @@ resource "aws_vpc_endpoint" "interface" {
 
   subnet_ids        = [aws_subnet.private.id]
   security_group_ids = [aws_security_group.endpoints.id]
-  private_dns_enabled = true
+  private_dns_enabled = try(each.value.private_dns, true)
 
   tags = merge(local.common_tags, { Name = "${var.environment}-vpce-${each.key}" })
 }
