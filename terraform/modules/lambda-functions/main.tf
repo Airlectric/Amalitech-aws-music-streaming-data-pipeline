@@ -40,6 +40,10 @@ resource "aws_lambda_function" "event_validator" {
     variables = {
       EXPECTED_SCHEMA_TYPE = "music_stream"
       SSM_PARAM_PATH       = "/${var.environment}/validator/expected_schema"
+      BRONZE_BUCKET        = var.bronze_bucket_id
+      DQ_TABLE_NAME        = var.dq_table_name
+      GLUE_DATABASE        = "${var.environment}_bronze_db"
+      GLUE_TABLE           = "streams"
     }
   }
 
@@ -49,6 +53,44 @@ resource "aws_lambda_function" "event_validator" {
   }
 
   tags = merge(local.common_tags, { Name = "${var.environment}-event-validator" })
+}
+
+# ────────────────────────────────────────────
+# QUARANTINE HANDLER
+# ────────────────────────────────────────────
+data "archive_file" "quarantiner" {
+  type        = "zip"
+  source_file = "${path.module}/handlers/quarantine_handler.py"
+  output_path = "${path.module}/builds/quarantine_handler.zip"
+}
+
+resource "aws_lambda_function" "quarantine_handler" {
+  filename         = data.archive_file.quarantiner.output_path
+  source_code_hash = data.archive_file.quarantiner.output_base64sha256
+  function_name    = "${var.environment}-quarantine-handler"
+  role             = var.lambda_quarantiner_role_arn
+  handler          = "quarantine_handler.lambda_handler"
+  runtime          = "python3.11"
+  timeout          = 60
+  memory_size      = 256
+
+  tracing_config {
+    mode = "PassThrough"
+  }
+
+  environment {
+    variables = {
+      BRONZE_BUCKET     = var.bronze_bucket_id
+      QUARANTINE_BUCKET = var.quarantine_bucket_id
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.security_group_lambda_id]
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-quarantine-handler" })
 }
 
 # ────────────────────────────────────────────

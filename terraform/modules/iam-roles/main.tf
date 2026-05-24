@@ -260,10 +260,10 @@ resource "aws_iam_role_policy" "lambda_validator_s3" {
         Resource = ["${var.bucket_arns["bronze"]}/streams/*"]
       },
       {
-        Sid      = "TagManifests"
+        Sid      = "TagStreamObjects"
         Effect   = "Allow"
         Action   = ["s3:PutObjectTagging"]
-        Resource = ["${var.bucket_arns["bronze"]}/streams/*/manifest.json"]
+        Resource = ["${var.bucket_arns["bronze"]}/streams/*"]
       },
       {
         Sid      = "WriteManifests"
@@ -289,6 +289,119 @@ resource "aws_iam_role_policy" "lambda_validator_ssm" {
         "ssm:GetParameters",
       ]
       Resource = ["arn:aws:ssm:${var.aws_region}:${local.account_id}:parameter/${var.environment}/*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "lambda_validator_kms" {
+  name = "${var.environment}-lambda-validator-kms"
+  role = aws_iam_role.lambda_validator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "KmsS3DataLake"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+        ]
+        Resource = [var.kms_key_arns["s3-data-lake"]]
+      },
+      {
+        Sid    = "KmsDynamoDB"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:Encrypt",
+        ]
+        Resource = [var.kms_key_arns["dynamodb"]]
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "lambda_validator_dq" {
+  name = "${var.environment}-lambda-validator-dq"
+  role = aws_iam_role.lambda_validator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "WriteDQReports"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:BatchWriteItem",
+        ]
+        Resource = [var.dynamodb_dq_table_arn]
+      },
+    ]
+  })
+}
+
+# ────────────────────────────────────────────
+# LAMBDA QUARANTINE HANDLER ROLE
+# ────────────────────────────────────────────
+resource "aws_iam_role" "lambda_quarantiner" {
+  name = "${var.environment}-lambda-quarantiner"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-lambda-quarantiner" })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_quarantiner_vpc" {
+  role       = aws_iam_role.lambda_quarantiner.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "lambda_quarantiner_s3" {
+  name = "${var.environment}-lambda-quarantiner-s3"
+  role = aws_iam_role.lambda_quarantiner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ReadBronzeQuarantine"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObjectTagging",
+        ]
+        Resource = ["${var.bucket_arns["bronze"]}/streams/*"]
+      },
+      {
+        Sid      = "WriteQuarantine"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${var.quarantine_bucket_arn}/*"]
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "lambda_quarantiner_kms" {
+  name = "${var.environment}-lambda-quarantiner-kms"
+  role = aws_iam_role.lambda_quarantiner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = local.kms_encrypt_decrypt
+      Resource = [var.kms_key_arns["s3-data-lake"]]
     }]
   })
 }
@@ -475,6 +588,12 @@ resource "aws_iam_role_policy" "step_functions_lambda" {
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
         Resource = [local.lambda_archiver_arn]
+      },
+      {
+        Sid      = "InvokeQuarantiner"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = [local.lambda_quarantiner_arn]
       },
     ]
   })

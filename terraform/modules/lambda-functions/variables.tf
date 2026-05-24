@@ -28,6 +28,21 @@ variable "lambda_event_router_role_arn" {
   type        = string
 }
 
+variable "lambda_quarantiner_role_arn" {
+  description = "ARN of the Lambda quarantine-handler IAM role"
+  type        = string
+}
+
+variable "quarantine_bucket_id" {
+  description = "Quarantine S3 bucket ID"
+  type        = string
+}
+
+variable "dq_table_name" {
+  description = "Name of the DQ reports DynamoDB table"
+  type        = string
+}
+
 variable "security_group_lambda_id" {
   description = "Security group ID for Lambda functions"
   type        = string

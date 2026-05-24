@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import boto3
 
 s3 = boto3.client("s3")
@@ -21,7 +21,7 @@ def lambda_handler(event, context):
     for key in keys_to_archive:
         try:
             copy_source = {"Bucket": BRONZE_BUCKET, "Key": key}
-            archive_key = f"archived/{datetime.utcnow().strftime('%Y/%m/%d')}/{key.split('/')[-1]}"
+            archive_key = f"archived/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}/{key.split('/')[-1]}"
 
             s3.copy_object(
                 CopySource=copy_source,
@@ -35,7 +35,11 @@ def lambda_handler(event, context):
         except Exception as e:
             results.append({"key": key, "status": "failed", "error": str(e)})
 
-    return {"execution_id": execution_id, "archived_count": len(results), "results": results}
+    return {
+        "execution_id": execution_id,
+        "archived_count": len(results),
+        "results": results,
+    }
 
 
 def _list_stream_keys(bucket):

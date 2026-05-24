@@ -9,6 +9,7 @@ locals {
     bronze         = "bronze-${var.bucket_suffix}"
     silver         = "silver-${var.bucket_suffix}"
     gold           = "gold-${var.bucket_suffix}"
+    quarantine     = "quarantine-${var.bucket_suffix}"
     archive        = "archive-${var.bucket_suffix}"
     glue_scripts   = "glue-scripts-${var.bucket_suffix}"
     athena_results = "athena-results-${var.bucket_suffix}"

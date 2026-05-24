@@ -21,3 +21,13 @@ output "table_names_map" {
     for k, t in aws_dynamodb_table.this : k => t.name
   }
 }
+
+output "dq_table_name" {
+  description = "Name of the DQ reports DynamoDB table"
+  value       = aws_dynamodb_table.this["dq-reports"].name
+}
+
+output "dq_table_arn" {
+  description = "ARN of the DQ reports DynamoDB table"
+  value       = aws_dynamodb_table.this["dq-reports"].arn
+}

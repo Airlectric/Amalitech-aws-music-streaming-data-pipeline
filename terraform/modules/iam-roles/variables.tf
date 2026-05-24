@@ -30,3 +30,15 @@ variable "sns_alert_topic_arn" {
   type        = string
   default     = null
 }
+
+variable "dynamodb_dq_table_arn" {
+  description = "ARN of the DQ reports DynamoDB table"
+  type        = string
+  default     = ""
+}
+
+variable "quarantine_bucket_arn" {
+  description = "ARN of the Quarantine S3 bucket"
+  type        = string
+  default     = ""
+}

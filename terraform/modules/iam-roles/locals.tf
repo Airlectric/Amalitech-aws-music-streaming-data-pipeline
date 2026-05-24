@@ -6,6 +6,7 @@ locals {
   lambda_validator_arn    = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-event-validator"
   lambda_archiver_arn     = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-stream-archiver"
   lambda_event_router_arn = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-event-router"
+  lambda_quarantiner_arn  = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-quarantine-handler"
 
   kms_decrypt = [
     "kms:Decrypt",

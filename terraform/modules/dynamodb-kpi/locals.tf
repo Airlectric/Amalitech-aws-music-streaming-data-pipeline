@@ -24,5 +24,11 @@ locals {
       ttl_days    = null
       description = "Stream count per artist per month (never expires)"
     }
+    "dq-reports" = {
+      pk          = "batch_id"
+      sk          = "event_date"
+      ttl_days    = 30
+      description = "Data quality validation reports per batch"
+    }
   }
 }

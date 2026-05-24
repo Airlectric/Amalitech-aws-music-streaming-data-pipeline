@@ -3,8 +3,8 @@ resource "aws_cloudwatch_event_rule" "bronze_s3_put" {
   description = "Capture S3 PutObject events on the Bronze bucket"
 
   event_pattern = jsonencode({
-    source      = ["aws.s3"]
-    detail_type = ["Object Created"]
+    source        = ["aws.s3"]
+    "detail-type" = ["Object Created"]
     detail = {
       bucket = {
         name = [var.bronze_bucket_id]

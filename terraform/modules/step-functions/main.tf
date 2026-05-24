@@ -4,9 +4,9 @@ locals {
     StartAt = "ValidateEvent"
     States = {
       ValidateEvent = {
-        Type          = "Task"
-        Resource      = var.lambda_validator_arn
-        Next          = "RunSilverETL"
+        Type     = "Task"
+        Resource = var.lambda_validator_arn
+        Next     = "CheckValidation"
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
@@ -15,9 +15,43 @@ locals {
           }
         ]
       }
+      CheckValidation = {
+        Type = "Choice"
+        Choices = [
+          {
+            Variable      = "$.valid"
+            BooleanEquals = true
+            Next          = "RunSilverETL"
+          }
+        ]
+        Default = "QuarantineFile"
+      }
+      QuarantineFile = {
+        Type       = "Task"
+        Resource   = var.lambda_quarantiner_arn
+        ResultPath = "$.quarantine_result"
+        Next       = "NotifyValidationFailure"
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Next        = "NotifyFailure"
+            ResultPath  = "$.error_info"
+          }
+        ]
+      }
+      NotifyValidationFailure = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::sns:publish"
+        Parameters = {
+          TopicArn = var.sns_alert_topic_arn
+          Message  = "Data quality validation failed for execution $$.Execution.Id. Bucket: $.bucket, Key: $.key, RecordCount: $.record_count, Errors: $.error_count"
+          Subject  = "DQ Failure: $$.Execution.Id"
+        }
+        End = true
+      }
       RunSilverETL = {
-        Type          = "Task"
-        Resource      = "arn:aws:states:::glue:startJobRun.sync"
+        Type     = "Task"
+        Resource = "arn:aws:states:::glue:startJobRun.sync"
         Parameters = {
           JobName = var.glue_silver_job_name
           Arguments = {
@@ -35,8 +69,8 @@ locals {
         ]
       }
       RunGoldETL = {
-        Type          = "Task"
-        Resource      = "arn:aws:states:::glue:startJobRun.sync"
+        Type     = "Task"
+        Resource = "arn:aws:states:::glue:startJobRun.sync"
         Parameters = {
           JobName = var.glue_gold_job_name
           Arguments = {
@@ -54,8 +88,8 @@ locals {
         ]
       }
       RunDDBETL = {
-        Type          = "Task"
-        Resource      = "arn:aws:states:::glue:startJobRun.sync"
+        Type     = "Task"
+        Resource = "arn:aws:states:::glue:startJobRun.sync"
         Parameters = {
           JobName = var.glue_ddb_job_name
           Arguments = {
@@ -75,9 +109,9 @@ locals {
         ]
       }
       ArchiveFiles = {
-        Type          = "Task"
-        Resource      = var.lambda_archiver_arn
-        End           = true
+        Type     = "Task"
+        Resource = var.lambda_archiver_arn
+        End      = true
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
@@ -87,12 +121,12 @@ locals {
         ]
       }
       NotifyFailure = {
-        Type         = "Task"
-        Resource     = "arn:aws:states:::sns:publish"
+        Type     = "Task"
+        Resource = "arn:aws:states:::sns:publish"
         Parameters = {
-          TopicArn   = var.sns_alert_topic_arn
-          Message    = "Medallion pipeline failed for execution $$.Execution.Id at state $$.State.Name"
-          Subject    = "Pipeline Failure: $$.Execution.Id"
+          TopicArn = var.sns_alert_topic_arn
+          Message  = "Medallion pipeline failed for execution $$.Execution.Id at state $$.State.Name"
+          Subject  = "Pipeline Failure: $$.Execution.Id"
         }
         End = true
       }

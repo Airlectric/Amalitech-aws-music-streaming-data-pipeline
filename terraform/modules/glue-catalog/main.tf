@@ -122,6 +122,11 @@ resource "aws_glue_catalog_table" "bronze_streams" {
       type    = "boolean"
       comment = "Whether the track was skipped"
     }
+    columns {
+      name    = "event_id"
+      type    = "string"
+      comment = "Unique event identifier (UUID)"
+    }
   }
 
   partition_keys {
@@ -167,7 +172,7 @@ resource "aws_glue_catalog_table" "silver_tracks" {
     columns {
       name    = "artist_id"
       type    = "string"
-      comment = "Deduplicated artist identifier"
+      comment = "Artist identifier"
     }
     columns {
       name    = "artist_name"
@@ -233,6 +238,11 @@ resource "aws_glue_catalog_table" "silver_tracks" {
     columns {
       name    = "hour"
       type    = "int"
+    }
+    columns {
+      name    = "event_id"
+      type    = "string"
+      comment = "Unique event identifier (UUID)"
     }
   }
 

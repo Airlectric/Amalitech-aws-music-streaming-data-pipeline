@@ -3,6 +3,11 @@ output "event_validator_arn" {
   value       = aws_lambda_function.event_validator.arn
 }
 
+output "quarantine_handler_arn" {
+  description = "ARN of the quarantine-handler Lambda function"
+  value       = aws_lambda_function.quarantine_handler.arn
+}
+
 output "stream_archiver_arn" {
   description = "ARN of the stream-archiver Lambda function"
   value       = aws_lambda_function.stream_archiver.arn
@@ -19,14 +24,16 @@ output "function_names" {
     validator    = aws_lambda_function.event_validator.function_name
     archiver     = aws_lambda_function.stream_archiver.function_name
     event_router = aws_lambda_function.event_router.function_name
+    quarantiner  = aws_lambda_function.quarantine_handler.function_name
   }
 }
 
 output "function_arns" {
   description = "Map of Lambda function ARNs by name"
   value = {
-    validator   = aws_lambda_function.event_validator.arn
-    archiver    = aws_lambda_function.stream_archiver.arn
+    validator    = aws_lambda_function.event_validator.arn
+    archiver     = aws_lambda_function.stream_archiver.arn
     event_router = aws_lambda_function.event_router.arn
+    quarantiner  = aws_lambda_function.quarantine_handler.arn
   }
 }

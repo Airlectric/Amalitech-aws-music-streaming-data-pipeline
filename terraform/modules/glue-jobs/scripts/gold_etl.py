@@ -15,7 +15,8 @@ df = spark.read.parquet(silver_path)
 agg = (
     df
     .groupBy(
-        "artist",
+        "artist_id",
+        "artist_name",
         "year",
         "month",
         "day",
@@ -24,7 +25,8 @@ agg = (
     .agg(
         F.count("*").alias("total_streams"),
         F.countDistinct("user_id").alias("unique_listeners"),
-        F.avg("listen_time_s").alias("avg_listen_time_s"),
+        F.avg("play_duration_seconds").alias("avg_play_duration_seconds"),
+        F.avg(F.col("skipped").cast("double")).alias("skip_rate"),
     )
     .withColumn("window_start", F.concat_ws(
         "-",

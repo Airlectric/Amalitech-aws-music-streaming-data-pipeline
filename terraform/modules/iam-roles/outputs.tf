@@ -1,28 +1,30 @@
 output "role_arns" {
   description = "Map of all IAM role ARNs by name"
   value = {
-    glue_silver        = aws_iam_role.glue_silver.arn
-    glue_gold          = aws_iam_role.glue_gold.arn
-    glue_ddb           = aws_iam_role.glue_ddb.arn
-    lambda_validator   = aws_iam_role.lambda_validator.arn
-    lambda_archiver    = aws_iam_role.lambda_archiver.arn
+    glue_silver         = aws_iam_role.glue_silver.arn
+    glue_gold           = aws_iam_role.glue_gold.arn
+    glue_ddb            = aws_iam_role.glue_ddb.arn
+    lambda_validator    = aws_iam_role.lambda_validator.arn
+    lambda_archiver     = aws_iam_role.lambda_archiver.arn
     lambda_event_router = aws_iam_role.lambda_event_router.arn
-    step_functions     = aws_iam_role.step_functions.arn
-    eventbridge        = aws_iam_role.eventbridge.arn
+    lambda_quarantiner  = aws_iam_role.lambda_quarantiner.arn
+    step_functions      = aws_iam_role.step_functions.arn
+    eventbridge         = aws_iam_role.eventbridge.arn
   }
 }
 
 output "role_names" {
   description = "Map of all IAM role names by name"
   value = {
-    glue_silver        = aws_iam_role.glue_silver.name
-    glue_gold          = aws_iam_role.glue_gold.name
-    glue_ddb           = aws_iam_role.glue_ddb.name
-    lambda_validator   = aws_iam_role.lambda_validator.name
-    lambda_archiver    = aws_iam_role.lambda_archiver.name
+    glue_silver         = aws_iam_role.glue_silver.name
+    glue_gold           = aws_iam_role.glue_gold.name
+    glue_ddb            = aws_iam_role.glue_ddb.name
+    lambda_validator    = aws_iam_role.lambda_validator.name
+    lambda_archiver     = aws_iam_role.lambda_archiver.name
     lambda_event_router = aws_iam_role.lambda_event_router.name
-    step_functions     = aws_iam_role.step_functions.name
-    eventbridge        = aws_iam_role.eventbridge.name
+    lambda_quarantiner  = aws_iam_role.lambda_quarantiner.name
+    step_functions      = aws_iam_role.step_functions.name
+    eventbridge         = aws_iam_role.eventbridge.name
   }
 }
 
@@ -60,6 +62,11 @@ output "lambda_archiver_role_arn" {
   value       = aws_iam_role.lambda_archiver.arn
 }
 
+output "lambda_quarantiner_role_arn" {
+  description = "ARN of the Lambda quarantine-handler role"
+  value       = aws_iam_role.lambda_quarantiner.arn
+}
+
 output "lambda_event_router_role_arn" {
   description = "ARN of the Lambda event-router role"
   value       = aws_iam_role.lambda_event_router.arn
@@ -71,6 +78,7 @@ output "lambda_role_arns" {
     aws_iam_role.lambda_validator.arn,
     aws_iam_role.lambda_archiver.arn,
     aws_iam_role.lambda_event_router.arn,
+    aws_iam_role.lambda_quarantiner.arn,
   ]
 }
 

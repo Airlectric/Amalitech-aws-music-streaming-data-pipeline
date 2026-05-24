@@ -158,6 +158,21 @@ output "step_functions_role_arn" {
   value       = module.iam_roles.step_functions_role_arn
 }
 
+output "quarantine_bucket_id" {
+  description = "ID of the Quarantine S3 bucket"
+  value       = module.s3_data_lake.quarantine_bucket_id
+}
+
+output "dq_table_name" {
+  description = "Name of the DQ reports DynamoDB table"
+  value       = module.dynamodb_kpi.dq_table_name
+}
+
+output "lambda_quarantine_handler_arn" {
+  description = "ARN of the quarantine-handler Lambda function"
+  value       = module.lambda_functions.quarantine_handler_arn
+}
+
 output "sns_topic_arn" {
   description = "ARN of the SNS pipeline alert topic"
   value       = aws_sns_topic.alerts.arn

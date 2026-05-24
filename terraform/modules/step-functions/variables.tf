@@ -8,6 +8,11 @@ variable "lambda_validator_arn" {
   type        = string
 }
 
+variable "lambda_quarantiner_arn" {
+  description = "ARN of the quarantine-handler Lambda function"
+  type        = string
+}
+
 variable "lambda_archiver_arn" {
   description = "ARN of the stream-archiver Lambda function"
   type        = string

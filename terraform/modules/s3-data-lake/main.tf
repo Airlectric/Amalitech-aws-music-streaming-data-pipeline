@@ -167,6 +167,22 @@ resource "aws_s3_bucket_lifecycle_configuration" "gold" {
   }
 }
 
+# Quarantine lifecycle: Expire @90d
+resource "aws_s3_bucket_lifecycle_configuration" "quarantine" {
+  bucket = aws_s3_bucket.this["quarantine"].id
+
+  rule {
+    id     = "quarantine-expiration"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = 90
+    }
+  }
+}
+
 # Archive lifecycle: Direct to Glacier Deep Archive @1d, expire @7yr
 resource "aws_s3_bucket_lifecycle_configuration" "archive" {
   bucket = aws_s3_bucket.this["archive"].id

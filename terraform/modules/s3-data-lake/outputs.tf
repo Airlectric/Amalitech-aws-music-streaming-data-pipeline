@@ -27,6 +27,11 @@ output "gold_bucket_id" {
   value       = aws_s3_bucket.this["gold"].id
 }
 
+output "quarantine_bucket_id" {
+  description = "ID of the Quarantine bucket"
+  value       = aws_s3_bucket.this["quarantine"].id
+}
+
 output "archive_bucket_id" {
   description = "ID of the Archive bucket"
   value       = aws_s3_bucket.this["archive"].id
@@ -55,6 +60,11 @@ output "silver_bucket_arn" {
 output "gold_bucket_arn" {
   description = "ARN of the Gold bucket"
   value       = aws_s3_bucket.this["gold"].arn
+}
+
+output "quarantine_bucket_arn" {
+  description = "ARN of the Quarantine bucket"
+  value       = aws_s3_bucket.this["quarantine"].arn
 }
 
 output "archive_bucket_arn" {
