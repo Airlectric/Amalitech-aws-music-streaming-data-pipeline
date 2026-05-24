@@ -158,6 +158,11 @@ output "step_functions_role_arn" {
   value       = module.iam_roles.step_functions_role_arn
 }
 
+output "athena_workgroup_name" {
+  description = "Name of the Athena analytics workgroup"
+  value       = module.athena.workgroup_name
+}
+
 output "eventbridge_role_arn" {
   description = "ARN of the EventBridge role"
   value       = module.iam_roles.eventbridge_role_arn

@@ -98,6 +98,14 @@ module "eventbridge" {
   eventbridge_role_arn    = module.iam_roles.eventbridge_role_arn
 }
 
+module "athena" {
+  source      = "../../modules/athena"
+  environment = var.environment
+
+  athena_results_bucket_id = module.s3_data_lake.athena_results_bucket_id
+  kms_key_arn               = module.kms.s3_data_lake_key_arn
+}
+
 module "iam_roles" {
   source      = "../../modules/iam-roles"
   environment = var.environment
