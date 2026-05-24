@@ -1,0 +1,3 @@
+# Lambda runtime includes boto3 and awscli by default.
+# No additional dependencies required for the handler code.
+# If adding external packages, list them here and bundle with --runtime python3.11.

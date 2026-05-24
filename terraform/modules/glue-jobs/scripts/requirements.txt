@@ -1,0 +1,5 @@
+# Glue 4.0 includes pyspark, boto3, pyarrow by default.
+# The DDB ETL script uses boto3 and pyarrow — both available in the runtime.
+# No additional pip packages required.
+#
+# If adding extras, deploy via --extra-py-files or S3 reference in the job definition.
