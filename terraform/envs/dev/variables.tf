@@ -27,3 +27,9 @@ variable "availability_zone" {
   type        = string
   default     = "us-east-1a"
 }
+
+variable "bucket_suffix" {
+  description = "Unique suffix for S3 bucket names (e.g., account ID or project name)"
+  type        = string
+}
+
