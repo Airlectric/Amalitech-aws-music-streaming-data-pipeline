@@ -48,6 +48,21 @@ output "s3_bucket_arns" {
   value       = module.s3_data_lake.bucket_arns
 }
 
+output "lambda_event_validator_arn" {
+  description = "ARN of the event-validator Lambda function"
+  value       = module.lambda_functions.event_validator_arn
+}
+
+output "lambda_stream_archiver_arn" {
+  description = "ARN of the stream-archiver Lambda function"
+  value       = module.lambda_functions.stream_archiver_arn
+}
+
+output "lambda_event_router_arn" {
+  description = "ARN of the event-router Lambda function"
+  value       = module.lambda_functions.event_router_arn
+}
+
 output "glue_silver_etl_job_name" {
   description = "Name of the Silver ETL Glue job"
   value       = module.glue_jobs.silver_etl_job_name

@@ -60,6 +60,22 @@ module "glue_jobs" {
   security_group_glue_id  = module.networking.security_group_glue_id
 }
 
+module "lambda_functions" {
+  source      = "../../modules/lambda-functions"
+  environment = var.environment
+
+  bronze_bucket_id  = module.s3_data_lake.bronze_bucket_id
+  archive_bucket_id = module.s3_data_lake.archive_bucket_id
+
+  lambda_validator_role_arn    = module.iam_roles.lambda_validator_role_arn
+  lambda_archiver_role_arn     = module.iam_roles.lambda_archiver_role_arn
+  lambda_event_router_role_arn = module.iam_roles.lambda_event_router_role_arn
+  step_functions_arn           = var.step_functions_arn
+
+  private_subnet_ids       = [module.networking.private_subnet_id]
+  security_group_lambda_id = module.networking.security_group_lambda_id
+}
+
 module "iam_roles" {
   source      = "../../modules/iam-roles"
   environment = var.environment
