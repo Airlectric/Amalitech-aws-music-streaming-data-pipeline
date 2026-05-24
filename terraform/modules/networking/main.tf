@@ -48,17 +48,6 @@ resource "aws_security_group" "endpoints" {
   description = "Security group for VPC interface endpoints"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "HTTPS from Glue and Lambda security groups"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [
-      aws_security_group.glue.id,
-      aws_security_group.lambda.id,
-    ]
-  }
-
   tags = local.common_tags
 }
 
@@ -66,14 +55,6 @@ resource "aws_security_group" "glue" {
   name        = "${var.environment}-glue"
   description = "Security group for AWS Glue jobs"
   vpc_id      = aws_vpc.main.id
-
-  egress {
-    description     = "HTTPS to VPC endpoints"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.endpoints.id]
-  }
 
   tags = local.common_tags
 }
@@ -83,15 +64,47 @@ resource "aws_security_group" "lambda" {
   description = "Security group for Lambda functions"
   vpc_id      = aws_vpc.main.id
 
-  egress {
-    description     = "HTTPS to VPC endpoints"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.endpoints.id]
-  }
-
   tags = local.common_tags
+}
+
+resource "aws_security_group_rule" "endpoints_ingress_glue" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.glue.id
+  security_group_id        = aws_security_group.endpoints.id
+  description              = "HTTPS from Glue security group"
+}
+
+resource "aws_security_group_rule" "endpoints_ingress_lambda" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.lambda.id
+  security_group_id        = aws_security_group.endpoints.id
+  description              = "HTTPS from Lambda security group"
+}
+
+resource "aws_security_group_rule" "glue_egress_endpoints" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.endpoints.id
+  security_group_id        = aws_security_group.glue.id
+  description              = "HTTPS to VPC endpoints"
+}
+
+resource "aws_security_group_rule" "lambda_egress_endpoints" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.endpoints.id
+  security_group_id        = aws_security_group.lambda.id
+  description              = "HTTPS to VPC endpoints"
 }
 
 resource "aws_vpc_endpoint" "gateway" {
