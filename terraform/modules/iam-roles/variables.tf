@@ -25,12 +25,6 @@ variable "dynamodb_kpi_table_arns" {
   default     = []
 }
 
-variable "step_functions_arn" {
-  description = "ARN of the Step Functions state machine"
-  type        = string
-  default     = null
-}
-
 variable "lambda_validator_arn" {
   description = "ARN of the event-validator Lambda function"
   type        = string

@@ -31,6 +31,7 @@ variable "lambda_event_router_role_arn" {
 variable "step_functions_arn" {
   description = "ARN of the Step Functions state machine"
   type        = string
+  default     = ""
 }
 
 variable "private_subnet_ids" {

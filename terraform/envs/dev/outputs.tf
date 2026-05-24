@@ -48,6 +48,11 @@ output "s3_bucket_arns" {
   value       = module.s3_data_lake.bucket_arns
 }
 
+output "step_functions_arn" {
+  description = "ARN of the medallion pipeline state machine"
+  value       = module.step_functions.state_machine_arn
+}
+
 output "lambda_event_validator_arn" {
   description = "ARN of the event-validator Lambda function"
   value       = module.lambda_functions.event_validator_arn

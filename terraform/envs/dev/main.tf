@@ -70,10 +70,23 @@ module "lambda_functions" {
   lambda_validator_role_arn    = module.iam_roles.lambda_validator_role_arn
   lambda_archiver_role_arn     = module.iam_roles.lambda_archiver_role_arn
   lambda_event_router_role_arn = module.iam_roles.lambda_event_router_role_arn
-  step_functions_arn           = var.step_functions_arn
-
   private_subnet_ids       = [module.networking.private_subnet_id]
   security_group_lambda_id = module.networking.security_group_lambda_id
+}
+
+module "step_functions" {
+  source      = "../../modules/step-functions"
+  environment = var.environment
+
+  lambda_validator_arn = module.lambda_functions.event_validator_arn
+  lambda_archiver_arn  = module.lambda_functions.stream_archiver_arn
+
+  glue_silver_job_name = module.glue_jobs.silver_etl_job_name
+  glue_gold_job_name   = module.glue_jobs.gold_etl_job_name
+  glue_ddb_job_name    = module.glue_jobs.ddb_etl_job_name
+
+  step_functions_role_arn = module.iam_roles.step_functions_role_arn
+  sns_alert_topic_arn     = var.sns_alert_topic_arn
 }
 
 module "iam_roles" {
@@ -85,9 +98,5 @@ module "iam_roles" {
   kms_key_arns  = module.kms.key_arns
 
   dynamodb_kpi_table_arns = module.dynamodb_kpi.table_arns
-  step_functions_arn      = var.step_functions_arn
-  lambda_validator_arn    = var.lambda_validator_arn
-  lambda_archiver_arn     = var.lambda_archiver_arn
-  lambda_event_router_arn = var.lambda_event_router_arn
   sns_alert_topic_arn     = var.sns_alert_topic_arn
 }

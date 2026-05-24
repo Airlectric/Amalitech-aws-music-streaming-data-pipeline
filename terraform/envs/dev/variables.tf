@@ -33,30 +33,6 @@ variable "bucket_suffix" {
   type        = string
 }
 
-variable "step_functions_arn" {
-  description = "ARN of the Step Functions state machine"
-  type        = string
-  default     = null
-}
-
-variable "lambda_validator_arn" {
-  description = "ARN of the event-validator Lambda function"
-  type        = string
-  default     = null
-}
-
-variable "lambda_archiver_arn" {
-  description = "ARN of the stream-archiver Lambda function"
-  type        = string
-  default     = null
-}
-
-variable "lambda_event_router_arn" {
-  description = "ARN of the event-router Lambda function"
-  type        = string
-  default     = null
-}
-
 variable "sns_alert_topic_arn" {
   description = "ARN of the SNS alert topic"
   type        = string

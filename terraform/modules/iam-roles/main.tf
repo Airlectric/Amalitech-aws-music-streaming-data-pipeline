@@ -1,27 +1,3 @@
-locals {
-  account_id = data.aws_caller_identity.current.account_id
-
-  kms_decrypt = [
-    "kms:Decrypt",
-    "kms:GenerateDataKey*",
-    "kms:DescribeKey",
-  ]
-
-  kms_encrypt_decrypt = [
-    "kms:Encrypt",
-    "kms:Decrypt",
-    "kms:GenerateDataKey*",
-    "kms:ReEncrypt*",
-    "kms:DescribeKey",
-  ]
-
-  common_tags = {
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Domain      = "iam"
-  }
-}
-
 data "aws_caller_identity" "current" {}
 
 # ────────────────────────────────────────────
@@ -64,15 +40,15 @@ resource "aws_iam_role_policy" "glue_silver_s3" {
         ]
       },
       {
-        Sid    = "WriteSilver"
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
+        Sid      = "WriteSilver"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
         Resource = ["${var.bucket_arns["silver"]}/*"]
       },
       {
-        Sid    = "AccessGlueScripts"
-        Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject"]
+        Sid      = "AccessGlueScripts"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject"]
         Resource = ["${var.bucket_arns["glue_scripts"]}/*", var.bucket_arns["glue_scripts"]]
       },
     ]
@@ -124,21 +100,21 @@ resource "aws_iam_role_policy" "glue_gold_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ReadSilver"
-        Effect = "Allow"
-        Action = ["s3:GetObject"]
+        Sid      = "ReadSilver"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
         Resource = ["${var.bucket_arns["silver"]}/*"]
       },
       {
-        Sid    = "WriteGold"
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
+        Sid      = "WriteGold"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
         Resource = ["${var.bucket_arns["gold"]}/*"]
       },
       {
-        Sid    = "AccessGlueScripts"
-        Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject"]
+        Sid      = "AccessGlueScripts"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject"]
         Resource = ["${var.bucket_arns["glue_scripts"]}/*", var.bucket_arns["glue_scripts"]]
       },
     ]
@@ -190,15 +166,15 @@ resource "aws_iam_role_policy" "glue_ddb_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ReadGold"
-        Effect = "Allow"
-        Action = ["s3:GetObject"]
+        Sid      = "ReadGold"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
         Resource = ["${var.bucket_arns["gold"]}/*"]
       },
       {
-        Sid    = "AccessGlueScripts"
-        Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject"]
+        Sid      = "AccessGlueScripts"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject"]
         Resource = ["${var.bucket_arns["glue_scripts"]}/*", var.bucket_arns["glue_scripts"]]
       },
     ]
@@ -232,15 +208,15 @@ resource "aws_iam_role_policy" "glue_ddb_kms" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "KmsS3DataLake"
-        Effect = "Allow"
-        Action = local.kms_decrypt
+        Sid      = "KmsS3DataLake"
+        Effect   = "Allow"
+        Action   = local.kms_decrypt
         Resource = [var.kms_key_arns["s3-data-lake"]]
       },
       {
-        Sid    = "KmsDynamoDB"
-        Effect = "Allow"
-        Action = local.kms_encrypt_decrypt
+        Sid      = "KmsDynamoDB"
+        Effect   = "Allow"
+        Action   = local.kms_encrypt_decrypt
         Resource = [var.kms_key_arns["dynamodb"]]
       },
     ]
@@ -278,21 +254,21 @@ resource "aws_iam_role_policy" "lambda_validator_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ReadBronzeStreams"
-        Effect = "Allow"
-        Action = ["s3:GetObject"]
+        Sid      = "ReadBronzeStreams"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
         Resource = ["${var.bucket_arns["bronze"]}/streams/*"]
       },
       {
-        Sid    = "TagManifests"
-        Effect = "Allow"
-        Action = ["s3:PutObjectTagging"]
+        Sid      = "TagManifests"
+        Effect   = "Allow"
+        Action   = ["s3:PutObjectTagging"]
         Resource = ["${var.bucket_arns["bronze"]}/streams/*/manifest.json"]
       },
       {
-        Sid    = "WriteManifests"
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
+        Sid      = "WriteManifests"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
         Resource = ["${var.bucket_arns["bronze"]}/streams/*/manifest.json"]
       },
     ]
@@ -361,9 +337,9 @@ resource "aws_iam_role_policy" "lambda_archiver_s3" {
         ]
       },
       {
-        Sid    = "WriteArchive"
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
+        Sid      = "WriteArchive"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
         Resource = ["${var.bucket_arns["archive"]}/*"]
       },
     ]
@@ -408,17 +384,16 @@ resource "aws_iam_role_policy_attachment" "lambda_event_router_basic" {
 }
 
 resource "aws_iam_role_policy" "lambda_event_router_sfn" {
-  count = var.step_functions_arn != null ? 1 : 0
-  name  = "${var.environment}-lambda-event-router-sfn"
-  role  = aws_iam_role.lambda_event_router.id
+  name = "${var.environment}-lambda-event-router-sfn"
+  role = aws_iam_role.lambda_event_router.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid    = "StartStateMachine"
-      Effect = "Allow"
-      Action = ["states:StartExecution"]
-      Resource = [var.step_functions_arn]
+      Sid      = "StartStateMachine"
+      Effect   = "Allow"
+      Action   = ["states:StartExecution"]
+      Resource = [local.step_functions_arn]
     }]
   })
 }
@@ -490,15 +465,15 @@ resource "aws_iam_role_policy" "step_functions_lambda" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "InvokeValidator"
-        Effect = "Allow"
-        Action = ["lambda:InvokeFunction"]
+        Sid      = "InvokeValidator"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
         Resource = var.lambda_validator_arn != null ? [var.lambda_validator_arn] : ["*"]
       },
       {
-        Sid    = "InvokeArchiver"
-        Effect = "Allow"
-        Action = ["lambda:InvokeFunction"]
+        Sid      = "InvokeArchiver"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
         Resource = var.lambda_archiver_arn != null ? [var.lambda_archiver_arn] : ["*"]
       },
     ]
@@ -513,9 +488,9 @@ resource "aws_iam_role_policy" "step_functions_sns" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid    = "PublishAlerts"
-      Effect = "Allow"
-      Action = ["sns:Publish"]
+      Sid      = "PublishAlerts"
+      Effect   = "Allow"
+      Action   = ["sns:Publish"]
       Resource = [var.sns_alert_topic_arn]
     }]
   })
@@ -563,9 +538,9 @@ resource "aws_iam_role_policy" "eventbridge_lambda" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid    = "InvokeEventRouter"
-      Effect = "Allow"
-      Action = ["lambda:InvokeFunction"]
+      Sid      = "InvokeEventRouter"
+      Effect   = "Allow"
+      Action   = ["lambda:InvokeFunction"]
       Resource = var.lambda_event_router_arn != null ? [var.lambda_event_router_arn] : ["*"]
     }]
   })
