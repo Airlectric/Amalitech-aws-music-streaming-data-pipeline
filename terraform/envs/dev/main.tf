@@ -33,6 +33,15 @@ module "dynamodb_kpi" {
   kms_key_arn = module.kms.dynamodb_key_arn
 }
 
+module "glue_catalog" {
+  source      = "../../modules/glue-catalog"
+  environment = var.environment
+
+  bronze_bucket_id = module.s3_data_lake.bronze_bucket_id
+  silver_bucket_id = module.s3_data_lake.silver_bucket_id
+  gold_bucket_id   = module.s3_data_lake.gold_bucket_id
+}
+
 module "iam_roles" {
   source      = "../../modules/iam-roles"
   environment = var.environment

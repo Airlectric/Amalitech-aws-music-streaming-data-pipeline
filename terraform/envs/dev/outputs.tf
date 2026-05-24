@@ -48,6 +48,21 @@ output "s3_bucket_arns" {
   value       = module.s3_data_lake.bucket_arns
 }
 
+output "glue_bronze_database_name" {
+  description = "Name of the Bronze Glue database"
+  value       = module.glue_catalog.bronze_database_name
+}
+
+output "glue_silver_database_name" {
+  description = "Name of the Silver Glue database"
+  value       = module.glue_catalog.silver_database_name
+}
+
+output "glue_gold_database_name" {
+  description = "Name of the Gold Glue database"
+  value       = module.glue_catalog.gold_database_name
+}
+
 output "dynamodb_kpi_table_arns_map" {
   description = "Map of DynamoDB KPI table names to ARNs"
   value       = module.dynamodb_kpi.table_arns_map
