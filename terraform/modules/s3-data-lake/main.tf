@@ -59,7 +59,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_ownership_preferences" "this" {
+resource "aws_s3_bucket_ownership_controls" "this" {
   for_each = local.bucket_name
 
   bucket = aws_s3_bucket.this[each.key].id
