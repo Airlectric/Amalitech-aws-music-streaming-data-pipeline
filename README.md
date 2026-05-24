@@ -6,6 +6,21 @@ A production-ready, event-driven serverless ETL pipeline on AWS that ingests mus
 
 **Pattern:** Event-driven serverless ETL with medallion layering (Bronze → Silver → Gold).
 
+![Music Streaming ETL Pipeline Architecture](docs/pipeline-architecture-v3.png)
+
+### Diagram Walkthrough
+
+The numbered annotations in the diagram represent the main pipeline flow:
+
+1. **Landing in Bronze:** The producer uploads raw music-streaming CSV files into the Bronze S3 bucket, which acts as the immutable raw landing zone.
+2. **Event-driven orchestration:** The S3 object creation event is routed through EventBridge to Step Functions, which starts the ETL workflow.
+3. **Silver curation:** The Silver Glue job validates records, applies schema and type casting, removes duplicates, and prepares analytics-friendly curated data.
+4. **Silver serving layer:** The curated Silver output is written to Silver S3 and registered in the Glue Data Catalog so downstream query engines can discover it.
+5. **Gold + KPI serving:** Downstream Glue jobs build Gold aggregates and load the final KPI-serving dataset into DynamoDB for application access.
+6. **Archival path:** The Archiver Lambda stores long-term or replay-safe copies of pipeline artifacts in Archive S3.
+7. **Application consumption:** App clients query DynamoDB for fast operational KPI lookups after the ETL outputs have been materialized.
+8. **Alerting flow:** CloudWatch alarms trigger the Alert Enricher Lambda, which publishes enriched notifications to SNS for on-call response.
+
 - **Ingestion:** S3 PutObject → EventBridge → Step Functions
 - **Bronze:** Raw CSV preserved in original format (immutable source of truth)
 - **Silver:** Validated, type-cast, deduplicated, dimension-joined Parquet
