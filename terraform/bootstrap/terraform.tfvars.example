@@ -1,0 +1,7 @@
+# Bootstrap Module Variables
+# Copy this file to terraform.tfvars and customize
+# Run: terraform apply -var="state_bucket_name=music-streaming-tfstate-YOUR_ACCOUNT_ID"
+
+environment      = "dev"
+aws_region       = "us-east-1"
+lock_table_name  = "terraform-state-lock"

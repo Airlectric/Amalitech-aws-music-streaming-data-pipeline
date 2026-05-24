@@ -1,0 +1,6 @@
+# Dev environment Terraform backend configuration
+# Copy this file to backend-dev.hcl and fill in your values
+# Usage: terraform -chdir=terraform/envs/dev init -backend-config=../../config/backend-dev.hcl
+
+bucket         = "music-streaming-tfstate-YOUR_AWS_ACCOUNT_ID"
+dynamodb_table = "terraform-state-lock"

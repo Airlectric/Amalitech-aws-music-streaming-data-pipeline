@@ -1,0 +1,6 @@
+# Terraform state backend configuration
+# Copy this file to backend.hcl and fill in your values
+# Usage: terraform init -backend-config=backend.hcl
+
+bucket         = "music-streaming-tfstate-YOUR_ACCOUNT_ID"
+dynamodb_table = "terraform-state-lock"

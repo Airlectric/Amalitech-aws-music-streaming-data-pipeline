@@ -85,6 +85,12 @@ Thumbs.db
 *.pem
 *.key
 
+# Backend config files (account-specific)
+backend.hcl
+backend*.hcl
+!backend*.hcl.example
+!config/backend*.hcl.example
+
 # Lambda build artifacts
 lambdas/**/package/
 lambdas/**/*.zip
