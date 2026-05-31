@@ -10,16 +10,16 @@ A production-ready, event-driven serverless ETL pipeline on AWS that ingests mus
 
 ### Diagram Walkthrough
 
-The numbered annotations in the diagram represent the main pipeline flow:
+The numbered badges in the diagram correspond to the main pipeline flow steps:
 
-1. **Landing in Bronze:** The producer uploads raw music-streaming JSON files into the Bronze S3 bucket, which acts as the immutable raw landing zone.
-2. **Event-driven orchestration:** The S3 object creation event is routed through EventBridge to Step Functions, which starts the ETL workflow.
-3. **Silver curation:** The Silver Glue job validates records, applies schema and type casting, removes duplicates, and prepares analytics-friendly curated data.
-4. **Silver serving layer:** The curated Silver output is written to Silver S3 and registered in the Glue Data Catalog so downstream query engines can discover it.
-5. **Gold + KPI serving:** A Gold Glue (PySpark) job builds the daily aggregates; a lightweight Glue **Python Shell** job (pyarrow + boto3) then loads the KPI-serving dataset into DynamoDB for application access.
-6. **Archival path:** The Archiver Lambda stores long-term or replay-safe copies of pipeline artifacts in Archive S3.
-7. **Application consumption:** App clients query DynamoDB for fast operational KPI lookups after the ETL outputs have been materialized.
-8. **Alerting flow:** CloudWatch alarms trigger SNS notifications for pipeline failures and validation errors.
+1. **Raw landing:** The producer uploads raw music-streaming CSV/JSON files into the Bronze S3 bucket — the immutable source of truth. An S3 Object Created event is emitted automatically.
+2. **Event routing:** EventBridge captures the S3 `Object Created` event and invokes the **Event Router Lambda** (outside the VPC). If delivery fails after retries, the event is captured in the **SQS dead-letter queue** so nothing is silently lost.
+3. **Orchestration trigger:** The Event Router calls Step Functions `StartExecution`, handing off the payload (bucket + key + run date). Step Functions (Standard) orchestrates every subsequent step.
+4. **Validation (in VPC):** The **Validator Lambda** (inside the private subnet) inspects the file for required fields and schema. Invalid files are routed to the **Quarantine Lambda**, which moves them to Quarantine S3 and fires an SNS alert.
+5. **Silver curation (in VPC):** The **Silver Glue PySpark job** (NETWORK-connected to the private subnet) reads Bronze, applies explicit schemas, cleanses, deduplicates, type-casts, and writes partitioned Parquet to Silver S3. Results are registered in the Glue Data Catalog.
+6. **Gold aggregation (in VPC):** The **Gold Glue PySpark job** reads Silver and computes the daily KPIs: listen counts, unique listeners, total/avg listening time per genre, top 3 songs per genre per day, and top 5 genres per day. Output is partitioned Parquet in Gold S3.
+7. **KPI serving (outside VPC):** The **DDB-Load Glue Python Shell job** reads the Gold Parquet files (pyarrow) and batch-writes the KPIs into DynamoDB tables for low-latency application lookups. It runs outside the VPC because it installs `pyarrow` from PyPI at startup, which needs internet access the no-NAT private subnet cannot provide.
+8. **Archival (in VPC):** The **Archiver Lambda** (inside the private subnet) moves processed Bronze files to Archive S3 (Glacier Deep Archive). It fails loud on any error so Step Functions can `Catch` and alert rather than report a false success.
 ### Data Flow
 
 | Layer  | Format  | Description                                       |
