@@ -138,6 +138,16 @@ resource "aws_iam_role" "github_actions" {
   tags = local.common_tags
 }
 
+# The CI pipeline is PLAN-ONLY (fmt / validate / plan). It therefore needs
+# read access to every service for `plan` to refresh state, plus read/write to the
+# state backend so `init`/`plan` can load and lock state. It does NOT need broad
+# create/modify/delete or iam:PassRole. If a gated `apply` pipeline is added later,
+# give it a SEPARATE, narrowly-scoped role rather than widening this one.
+resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
 resource "aws_iam_role_policy" "github_actions" {
   name = "${var.environment}-github-actions-terraform"
   role = aws_iam_role.github_actions.id
@@ -149,9 +159,15 @@ resource "aws_iam_role_policy" "github_actions" {
         Sid    = "ManageStateBackend"
         Effect = "Allow"
         Action = [
-          "s3:*",
-          "dynamodb:*",
-          "kms:*",
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey",
         ]
         Resource = [
           aws_s3_bucket.state.arn,
@@ -159,43 +175,6 @@ resource "aws_iam_role_policy" "github_actions" {
           aws_dynamodb_table.state_lock.arn,
           aws_kms_key.state.arn,
         ]
-      },
-      {
-        Sid    = "ManageInfrastructure"
-        Effect = "Allow"
-        Action = [
-          "acm:*",
-          "athena:*",
-          "cloudformation:*",
-          "cloudwatch:*",
-          "dynamodb:*",
-          "ec2:*",
-          "events:*",
-          "glue:*",
-          "iam:*",
-          "kms:*",
-          "lambda:*",
-          "logs:*",
-          "s3:*",
-          "sns:*",
-          "states:*",
-        ]
-        Resource = ["*"]
-      },
-      {
-        Sid      = "PassRoles"
-        Effect   = "Allow"
-        Action   = ["iam:PassRole"]
-        Resource = ["*"]
-        Condition = {
-          StringEquals = {
-            "iam:PassedToService" = [
-              "glue.amazonaws.com",
-              "lambda.amazonaws.com",
-              "states.amazonaws.com",
-            ]
-          }
-        }
       },
     ]
   })
