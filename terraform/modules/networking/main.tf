@@ -7,12 +7,14 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "private" {
+  for_each = local.private_subnets
+
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.private_subnet_cidr
-  availability_zone       = var.availability_zone
+  cidr_block              = each.value
+  availability_zone       = each.key
   map_public_ip_on_launch = false
 
-  tags = merge(local.common_tags, { Name = "${var.environment}-private-${var.availability_zone}" })
+  tags = merge(local.common_tags, { Name = "${var.environment}-private-${each.key}" })
 }
 
 resource "aws_security_group" "endpoints" {
@@ -138,7 +140,7 @@ resource "aws_vpc_endpoint" "interface" {
   service_name      = "com.amazonaws.${data.aws_region.current.name}.${each.value.service}"
   vpc_endpoint_type = "Interface"
 
-  subnet_ids          = [aws_subnet.private.id]
+  subnet_ids          = [for s in aws_subnet.private : s.id]
   security_group_ids  = [aws_security_group.endpoints.id]
   private_dns_enabled = try(each.value.private_dns, true)
 
@@ -152,7 +154,9 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route_table_association" "private" {
-  subnet_id      = aws_subnet.private.id
+  for_each = aws_subnet.private
+
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.private.id
 }
 
@@ -226,7 +230,7 @@ resource "aws_iam_role_policy" "flow_logs" {
 
 resource "aws_default_network_acl" "main" {
   default_network_acl_id = aws_vpc.main.default_network_acl_id
-  subnet_ids             = [aws_subnet.private.id]
+  subnet_ids             = [for s in aws_subnet.private : s.id]
 
   ingress {
     protocol   = "-1"

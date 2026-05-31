@@ -5,6 +5,11 @@ locals {
     Domain      = "networking"
   }
 
+  # AZ => CIDR map for the private subnets (one subnet per AZ).
+  private_subnets = {
+    for idx, az in var.availability_zones : az => var.private_subnet_cidrs[idx]
+  }
+
   vpc_endpoint_services = {
     glue           = { service = "glue", private_dns = false }
     states         = { service = "states", private_dns = true }

@@ -182,18 +182,25 @@ Test coverage:
 
 ## Design Decisions
 
-### VPC / PrivateLink (current state)
-The VPC, private subnet, security groups, and the S3/DynamoDB gateway + interface endpoints
-listed below are **provisioned**, and they are the *intended* network boundary: the validator,
-quarantiner, and archiver Lambdas (and the Glue jobs) are meant to run inside the VPC so traffic
-stays off the public internet, while the event router stays VPC-external because it only calls
-Step Functions via the AWS API.
+### VPC / PrivateLink
+Compute runs **inside the VPC** so traffic stays off the public internet:
+- **Validator, quarantiner, and archiver Lambdas** are attached via `vpc_config` to the private
+  subnets (one per AZ) and the Lambda security group.
+- **Silver and Gold Glue jobs** run in the VPC via a Glue **NETWORK connection** (`aws_glue_connection`)
+  bound to the private subnet and Glue security group.
+- The **event router** stays VPC-external by design — it only calls Step Functions via the AWS API.
+- The **DDB-load Python Shell job** stays VPC-external by necessity — it installs `pyarrow` from PyPI
+  (`--additional-python-modules`), which the no-NAT private subnet can't reach; it only talks to
+  S3/DynamoDB over TLS.
 
-> **Note:** in the current code the Lambdas have no `vpc_config` and the Glue jobs have no
-> `aws_glue_connection`, so compute is **not yet attached** to the VPC — it runs in the
-> AWS-managed network. Wiring this up (and adding a second AZ) is tracked as item **B1** in the
-> project correction plan (kept in the `Dannys_notes/` folder beside this repo); it needs an
-> apply→test loop because the in-VPC path previously hit Glue endpoint connectivity issues (see below).
+Subnets are **multi-AZ** (`availability_zones` / `private_subnet_cidrs`, defaulting to two AZs).
+All AWS API traffic egresses through the gateway endpoints (S3, DynamoDB) and interface endpoints
+listed below — there is no NAT/internet route.
+
+> **Apply→test note:** an earlier iteration hit Glue interface-endpoint connectivity issues in-VPC
+> (see the schema note below). Validate the in-VPC Glue path on first `terraform apply`; if
+> `glue:GetTable` from the Lambdas is needed later, confirm the Glue interface endpoint + 443
+> self-ingress before removing the hardcoded schemas.
 
 ### Why hardcoded schemas instead of Glue API?
 The initial validator called `glue:GetTable` to fetch the expected schema dynamically, but Glue API

@@ -8,19 +8,21 @@ output "vpc_cidr" {
   value       = aws_vpc.main.cidr_block
 }
 
-output "private_subnet_id" {
-  description = "ID of the private subnet"
-  value       = aws_subnet.private.id
+output "private_subnet_ids" {
+  description = "IDs of the private subnets (one per AZ)"
+  value       = [for s in aws_subnet.private : s.id]
 }
 
-output "private_subnet_cidr" {
-  description = "CIDR block of the private subnet"
-  value       = aws_subnet.private.cidr_block
+# A Glue NETWORK connection attaches to a single subnet; expose the first one
+# (and its AZ) deterministically for that purpose.
+output "glue_connection_subnet_id" {
+  description = "Subnet ID to use for the Glue NETWORK connection"
+  value       = values(aws_subnet.private)[0].id
 }
 
-output "availability_zone" {
-  description = "Availability zone of the private subnet"
-  value       = aws_subnet.private.availability_zone
+output "glue_connection_az" {
+  description = "Availability zone of the Glue NETWORK connection subnet"
+  value       = values(aws_subnet.private)[0].availability_zone
 }
 
 output "security_group_glue_id" {

@@ -264,6 +264,12 @@ resource "aws_iam_role_policy_attachment" "lambda_validator_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# VPC-attached: needs ENI create/describe/delete to run in the private subnet.
+resource "aws_iam_role_policy_attachment" "lambda_validator_vpc" {
+  role       = aws_iam_role.lambda_validator.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role_policy" "lambda_validator_s3" {
   name = "${var.environment}-lambda-validator-s3"
   role = aws_iam_role.lambda_validator.id
@@ -366,6 +372,12 @@ resource "aws_iam_role_policy_attachment" "lambda_quarantiner_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# VPC-attached: needs ENI create/describe/delete to run in the private subnet.
+resource "aws_iam_role_policy_attachment" "lambda_quarantiner_vpc" {
+  role       = aws_iam_role.lambda_quarantiner.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role_policy" "lambda_quarantiner_s3" {
   name = "${var.environment}-lambda-quarantiner-s3"
   role = aws_iam_role.lambda_quarantiner.id
@@ -427,6 +439,12 @@ resource "aws_iam_role" "lambda_archiver" {
 resource "aws_iam_role_policy_attachment" "lambda_archiver_basic" {
   role       = aws_iam_role.lambda_archiver.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# VPC-attached: needs ENI create/describe/delete to run in the private subnet.
+resource "aws_iam_role_policy_attachment" "lambda_archiver_vpc" {
+  role       = aws_iam_role.lambda_archiver.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 resource "aws_iam_role_policy" "lambda_archiver_s3" {

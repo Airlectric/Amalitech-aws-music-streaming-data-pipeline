@@ -2,12 +2,12 @@
 # Copy this file to terraform.tfvars and customize
 # Non-sensitive configuration values
 
-environment        = "dev"
-aws_region         = "us-east-1"
-vpc_cidr           = "10.0.0.0/16"
-private_subnet_cidr = "10.0.10.0/24"
-availability_zone  = "us-east-1a"
-bucket_suffix      = "YOUR_ACCOUNT_ID_HERE"
+environment          = "dev"
+aws_region           = "us-east-1"
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+bucket_suffix        = "YOUR_ACCOUNT_ID_HERE"
 
 # SNS alert email subscriptions (add to secrets.auto.tfvars instead for sensitive values)
 # sns_alert_emails = ["admin@example.com"]

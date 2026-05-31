@@ -27,12 +27,12 @@ module "networking" {
   source      = "../../modules/networking"
   environment = var.environment
 
-  vpc_cidr            = var.vpc_cidr
-  private_subnet_cidr = var.private_subnet_cidr
-  availability_zone   = var.availability_zone
-  kms_key_arn         = module.kms.logs_key_arn
-  enable_flow_logs    = true
-  retention_days      = 30
+  vpc_cidr             = var.vpc_cidr
+  availability_zones   = var.availability_zones
+  private_subnet_cidrs = var.private_subnet_cidrs
+  kms_key_arn          = module.kms.logs_key_arn
+  enable_flow_logs     = true
+  retention_days       = 30
 }
 
 module "s3_data_lake" {
@@ -74,7 +74,8 @@ module "glue_jobs" {
   glue_ddb_role_arn        = module.iam_roles.glue_ddb_role_arn
   dynamodb_kpi_table_names = module.dynamodb_kpi.table_names_map
 
-  private_subnet_id      = module.networking.private_subnet_id
+  private_subnet_id      = module.networking.glue_connection_subnet_id
+  glue_subnet_az         = module.networking.glue_connection_az
   security_group_glue_id = module.networking.security_group_glue_id
 }
 
@@ -91,7 +92,7 @@ module "lambda_functions" {
   lambda_archiver_role_arn     = module.iam_roles.lambda_archiver_role_arn
   lambda_event_router_role_arn = module.iam_roles.lambda_event_router_role_arn
   lambda_quarantiner_role_arn  = module.iam_roles.lambda_quarantiner_role_arn
-  private_subnet_ids           = [module.networking.private_subnet_id]
+  private_subnet_ids           = module.networking.private_subnet_ids
   security_group_lambda_id     = module.networking.security_group_lambda_id
 }
 

@@ -1,4 +1,22 @@
 # ────────────────────────────────────────────
+# VPC CONNECTION
+# A NETWORK connection makes the Glue jobs run inside the private subnet so all
+# traffic reaches AWS services via the VPC gateway/interface endpoints.
+# ────────────────────────────────────────────
+resource "aws_glue_connection" "network" {
+  name            = "${var.environment}-glue-network"
+  connection_type = "NETWORK"
+
+  physical_connection_requirements {
+    availability_zone      = var.glue_subnet_az
+    subnet_id              = var.private_subnet_id
+    security_group_id_list = [var.security_group_glue_id]
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-glue-network" })
+}
+
+# ────────────────────────────────────────────
 # SCRIPT UPLOADS
 # ────────────────────────────────────────────
 resource "aws_s3_object" "silver_etl_script" {
@@ -26,8 +44,9 @@ resource "aws_s3_object" "ddb_etl_script" {
 # SILVER ETL: bronze JSON → silver Parquet
 # ────────────────────────────────────────────
 resource "aws_glue_job" "silver_etl" {
-  name     = "${var.environment}-silver-etl"
-  role_arn = var.glue_silver_role_arn
+  name        = "${var.environment}-silver-etl"
+  role_arn    = var.glue_silver_role_arn
+  connections = [aws_glue_connection.network.name]
 
   glue_version      = "4.0"
   worker_type       = "G.1X"
@@ -61,8 +80,9 @@ resource "aws_glue_job" "silver_etl" {
 # GOLD ETL: silver Parquet → gold aggregated Parquet
 # ────────────────────────────────────────────
 resource "aws_glue_job" "gold_etl" {
-  name     = "${var.environment}-gold-etl"
-  role_arn = var.glue_gold_role_arn
+  name        = "${var.environment}-gold-etl"
+  role_arn    = var.glue_gold_role_arn
+  connections = [aws_glue_connection.network.name]
 
   glue_version      = "4.0"
   worker_type       = "G.1X"
@@ -99,6 +119,11 @@ resource "aws_glue_job" "gold_etl" {
 # boto3 batch-write of small daily aggregates, so Spark workers add only cold-start
 # latency and DPU cost with no benefit. Running it as `pythonshell` at 1 DPU also
 # satisfies the brief's requirement to use "PySpark and Python Shell jobs".
+#
+# It is intentionally NOT attached to the Glue NETWORK connection: it installs
+# pyarrow via --additional-python-modules (needs PyPI), and the private subnet has
+# no NAT/internet egress. It only reaches S3 and DynamoDB over TLS, so running it
+# outside the VPC is both necessary and sufficient.
 # ────────────────────────────────────────────
 resource "aws_glue_job" "ddb_etl" {
   name     = "${var.environment}-ddb-etl"

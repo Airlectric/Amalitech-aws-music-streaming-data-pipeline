@@ -32,6 +32,13 @@ resource "aws_lambda_function" "event_validator" {
   timeout          = 90
   memory_size      = 256
 
+  # Runs in the VPC; reaches S3/DynamoDB via gateway endpoints and other AWS
+  # services via interface endpoints (no public internet path).
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.security_group_lambda_id]
+  }
+
   tracing_config {
     mode = "PassThrough"
   }
@@ -65,6 +72,12 @@ resource "aws_lambda_function" "quarantine_handler" {
   timeout          = 60
   memory_size      = 256
 
+  # Runs in the VPC; reaches S3 via the gateway endpoint (no public internet path).
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.security_group_lambda_id]
+  }
+
   tracing_config {
     mode = "PassThrough"
   }
@@ -91,6 +104,12 @@ resource "aws_lambda_function" "stream_archiver" {
   runtime          = "python3.11"
   timeout          = 300
   memory_size      = 256
+
+  # Runs in the VPC; reaches S3 via the gateway endpoint (no public internet path).
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.security_group_lambda_id]
+  }
 
   tracing_config {
     mode = "PassThrough"

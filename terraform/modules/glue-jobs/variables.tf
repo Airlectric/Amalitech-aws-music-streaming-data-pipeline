@@ -44,7 +44,12 @@ variable "dynamodb_kpi_table_names" {
 }
 
 variable "private_subnet_id" {
-  description = "Private subnet ID for Glue jobs"
+  description = "Private subnet ID for the Glue NETWORK connection"
+  type        = string
+}
+
+variable "glue_subnet_az" {
+  description = "Availability zone of the Glue NETWORK connection subnet"
   type        = string
 }
 
