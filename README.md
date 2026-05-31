@@ -16,7 +16,7 @@ The numbered annotations in the diagram represent the main pipeline flow:
 2. **Event-driven orchestration:** The S3 object creation event is routed through EventBridge to Step Functions, which starts the ETL workflow.
 3. **Silver curation:** The Silver Glue job validates records, applies schema and type casting, removes duplicates, and prepares analytics-friendly curated data.
 4. **Silver serving layer:** The curated Silver output is written to Silver S3 and registered in the Glue Data Catalog so downstream query engines can discover it.
-5. **Gold + KPI serving:** Downstream Glue jobs build Gold aggregates and load the final KPI-serving dataset into DynamoDB for application access.
+5. **Gold + KPI serving:** A Gold Glue (PySpark) job builds the daily aggregates; a lightweight Glue **Python Shell** job (pyarrow + boto3) then loads the KPI-serving dataset into DynamoDB for application access.
 6. **Archival path:** The Archiver Lambda stores long-term or replay-safe copies of pipeline artifacts in Archive S3.
 7. **Application consumption:** App clients query DynamoDB for fast operational KPI lookups after the ETL outputs have been materialized.
 8. **Alerting flow:** CloudWatch alarms trigger SNS notifications for pipeline failures and validation errors.
@@ -35,10 +35,10 @@ The numbered annotations in the diagram represent the main pipeline flow:
 2. **Validation** — Validator Lambda checks required fields, detects schema drift, writes DQ reports to DynamoDB
 3. **Quarantine** — Invalid files are copied to quarantine bucket and tagged; SNS notification is sent
 4. **Silver ETL** — Glue PySpark job cleanses, deduplicates, type-casts, and partitions data
-5. **Gold ETL** — Glue PySpark job aggregates daily KPIs (genre counts, top songs, top genres)
-6. **DDB ETL** — Glue PySpark job loads gold aggregates into DynamoDB tables for low-latency queries
+5. **Gold ETL** — Glue PySpark job aggregates daily KPIs (genre counts, top 3 songs/genre, top 5 genres)
+6. **DDB Load** — Glue **Python Shell** job (pyarrow + boto3) batch-writes gold aggregates into DynamoDB tables for low-latency queries
 7. **Archive** — Archiver Lambda moves processed bronze files to long-term archive (Glacier Deep Archive)
-8. **Alerting** — SNS notifications on validation failures or pipeline errors
+8. **Alerting & DLQ** — SNS notifications on validation/pipeline failures; failed EventBridge→router deliveries and async router failures are captured in an SQS dead-letter queue with bounded retries
 
 ---
 
@@ -47,16 +47,16 @@ The numbered annotations in the diagram represent the main pipeline flow:
 | Layer | Service |
 |---|---|
 | Orchestration | AWS Step Functions (Standard) |
-| Transformation | AWS Glue (PySpark), Glue Data Catalog |
+| Transformation | AWS Glue (PySpark + Python Shell), Glue Data Catalog |
 | Storage | Amazon S3 (JSON, Parquet), DynamoDB (on-demand) |
-| Eventing | Amazon EventBridge |
+| Eventing | Amazon EventBridge, Amazon SQS (dead-letter queue) |
 | Compute | AWS Lambda (Python 3.11, VPC-attached) |
 | Analytics | Amazon Athena |
-| Security | KMS (CMKs), IAM (least privilege), VPC + PrivateLink endpoints |
+| Security | KMS (CMKs), IAM (least privilege), multi-AZ VPC + PrivateLink endpoints |
 | Observability | CloudWatch (logs, metrics, alarms, dashboard), X-Ray |
 | Notifications | Amazon SNS |
 | IaC | Terraform 1.7+, modular composition |
-| CI/CD | GitHub Actions (terraform validate + plan, pytest) |
+| CI/CD | GitHub Actions (terraform validate + plan, pytest; least-privilege OIDC role) |
 
 ---
 
@@ -72,11 +72,11 @@ music-streaming-data-pipeline/
 │       ├── dynamodb-kpi/       # KPI DynamoDB tables (hourly/daily/monthly + DQ reports)
 │       ├── eventbridge/        # EventBridge rule: S3 PutObject → Lambda
 │       ├── glue-catalog/       # Glue Data Catalog databases and tables
-│       ├── glue-jobs/          # Glue ETL job definitions + PySpark scripts
+│       ├── glue-jobs/          # Glue job defs + PySpark (silver/gold) & Python Shell (ddb) scripts + NETWORK connection
 │       ├── iam-roles/          # All IAM roles and policies (least privilege)
 │       ├── kms/                # KMS CMKs for S3, DynamoDB, Glue, logs
 │       ├── lambda-functions/   # Lambda functions + handler code
-│       ├── networking/         # VPC, subnets, security groups, VPC endpoints
+│       ├── networking/         # multi-AZ VPC, private subnets, security groups, VPC endpoints
 │       ├── observability/      # CloudWatch dashboard and metric alarms
 │       ├── s3-data-lake/       # S3 buckets (bronze/silver/gold/quarantine/archive/glue-scripts/athena-results/access-logs)
 │       └── step-functions/     # Step Functions state machine definition
@@ -86,10 +86,11 @@ music-streaming-data-pipeline/
 ├── tests/
 │   ├── conftest.py             # Pytest configuration (sys.path, fixtures)
 │   ├── requirements.txt        # Test dependencies
-│   ├── test_event_validator.py # Validator Lambda tests (30 tests)
-│   ├── test_event_router.py    # Event Router Lambda tests (6 tests)
-│   ├── test_quarantine_handler.py # Quarantine Handler Lambda tests (4 tests)
-│   └── test_stream_archiver.py # Stream Archiver Lambda tests (5 tests)
+│   ├── test_event_validator.py # Validator Lambda tests
+│   ├── test_event_router.py    # Event Router Lambda tests
+│   ├── test_quarantine_handler.py # Quarantine Handler Lambda tests
+│   ├── test_stream_archiver.py # Stream Archiver Lambda tests
+│   └── test_ddb_etl.py         # DDB-load Python Shell job tests
 ├── data/                       # Sample data (users.csv, songs.csv, streams*.csv)
 ├── .github/workflows/
 │   └── terraform.yml           # CI/CD pipeline (pytest + terraform validate + plan)
@@ -165,18 +166,19 @@ python scripts/produce_streams.py bronze-108782069549 --burst
 
 ## Testing
 
-All Lambda handlers have unit tests using `unittest.mock` (no AWS credentials required):
+All Lambda handlers and the DDB-load job have unit tests using `unittest.mock` (no AWS credentials required):
 
 ```bash
 pip install -r tests/requirements.txt
-python -m pytest tests/ -v
+python -m pytest tests/ -v   # 33 tests
 ```
 
 Test coverage:
 - **event_validator**: JSON parsing, field validation, schema drift detection, S3/DDB interactions, error handling
 - **event_router**: S3 event routing, skip logic, SFn execution, execution ID format
-- **stream_archiver**: Key-based archiving, bucket listing, manifest skip, partial failure handling
+- **stream_archiver**: Key-based archiving, bucket listing, manifest skip; fails loud on partial failure so Step Functions can Catch and alert
 - **quarantine_handler**: Copy + tag operations, missing key handling, S3 error handling
+- **ddb_etl**: S3 partition path parsing, decimal coercion, paginated parquet read/merge
 
 ---
 
