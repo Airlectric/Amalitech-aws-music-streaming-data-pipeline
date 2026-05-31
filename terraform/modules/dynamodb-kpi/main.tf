@@ -17,12 +17,12 @@ resource "aws_dynamodb_table" "this" {
 
   attribute {
     name = each.value.pk
-    type = "S"
+    type = each.value.pk_type
   }
 
   attribute {
     name = each.value.sk
-    type = "S"
+    type = each.value.sk_type
   }
 
   dynamic "ttl" {

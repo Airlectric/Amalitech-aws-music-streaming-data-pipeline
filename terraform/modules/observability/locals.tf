@@ -7,12 +7,12 @@ locals {
 
   dashboard_widgets = [
     {
-      type   = "metric"
+      type = "metric"
       properties = {
-        title   = "Pipeline Overview"
-        view    = "singleValue"
-        region  = "us-east-1"
-        period  = 300
+        title  = "Pipeline Overview"
+        view   = "singleValue"
+        region = "us-east-1"
+        period = 300
         metrics = [
           ["AWS/States", "ExecutionsStarted", { stat = "Sum", label = "SM Started" }],
           ["AWS/States", "ExecutionsSucceeded", { stat = "Sum", label = "SM Succeeded" }],
@@ -21,12 +21,12 @@ locals {
       }
     },
     {
-      type   = "metric"
+      type = "metric"
       properties = {
-        title   = "Lambda Functions"
-        view    = "singleValue"
-        region  = "us-east-1"
-        period  = 300
+        title  = "Lambda Functions"
+        view   = "singleValue"
+        region = "us-east-1"
+        period = 300
         metrics = [
           ["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names["validator"], { stat = "Sum", label = "Validator Invocations" }],
           ["AWS/Lambda", "Errors", "FunctionName", var.lambda_function_names["validator"], { stat = "Sum", label = "Validator Errors" }],
@@ -41,12 +41,12 @@ locals {
       }
     },
     {
-      type   = "metric"
+      type = "metric"
       properties = {
-        title   = "Glue Jobs"
-        view    = "singleValue"
-        region  = "us-east-1"
-        period  = 300
+        title  = "Glue Jobs"
+        view   = "singleValue"
+        region = "us-east-1"
+        period = 300
         metrics = [
           ["AWS/Glue", "SuccessfulRuns", "JobName", var.glue_job_names["silver"], { stat = "Sum", label = "Silver Success" }],
           ["AWS/Glue", "FailedRuns", "JobName", var.glue_job_names["silver"], { stat = "Sum", label = "Silver Failed" }],
@@ -58,12 +58,12 @@ locals {
       }
     },
     {
-      type   = "metric"
+      type = "metric"
       properties = {
-        title   = "S3 Events (Bronze)"
-        view    = "timeSeries"
-        region  = "us-east-1"
-        period  = 300
+        title  = "S3 Events (Bronze)"
+        view   = "timeSeries"
+        region = "us-east-1"
+        period = 300
         metrics = [
           ["AWS/S3", "PutRequests", "BucketName", var.s3_bronze_bucket_name, { stat = "Sum" }],
         ]

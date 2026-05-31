@@ -43,20 +43,22 @@ locals {
         Type     = "Task"
         Resource = "arn:aws:states:::sns:publish"
         Parameters = {
-          TopicArn = var.sns_alert_topic_arn
-          Message  = "Data quality validation failed for execution $$.Execution.Id. Bucket: $.bucket, Key: $.key, RecordCount: $.record_count, Errors: $.error_count"
-          Subject  = "DQ Failure: $$.Execution.Id"
+          TopicArn    = var.sns_alert_topic_arn
+          "Message.$" = "States.Format('Data quality validation failed for execution {}. Bucket: {}, Key: {}, RecordCount: {}, Errors: {}', $$.Execution.Id, $.bucket, $.key, $.record_count, $.error_count)"
+          "Subject.$" = "States.Format('DQ Failure: {}', $.execution_id)"
         }
-        End = true
+        Next = "ValidationFailed"
       }
       RunSilverETL = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::glue:startJobRun.sync"
+        Type       = "Task"
+        Resource   = "arn:aws:states:::glue:startJobRun.sync"
+        ResultPath = "$.silver_job"
         Parameters = {
           JobName = var.glue_silver_job_name
           Arguments = {
-            "--bronze_path" = "s3://${var.bronze_bucket_id}/"
-            "--silver_path" = "s3://${var.silver_bucket_id}/"
+            "--bronze_bucket.$" = "$.bucket"
+            "--stream_key.$"    = "$.key"
+            "--silver_path"     = "s3://${var.silver_bucket_id}"
           }
         }
         Next = "RunGoldETL"
@@ -69,13 +71,15 @@ locals {
         ]
       }
       RunGoldETL = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::glue:startJobRun.sync"
+        Type       = "Task"
+        Resource   = "arn:aws:states:::glue:startJobRun.sync"
+        ResultPath = "$.gold_job"
         Parameters = {
           JobName = var.glue_gold_job_name
           Arguments = {
-            "--silver_path" = "s3://${var.silver_bucket_id}/"
-            "--gold_path"   = "s3://${var.gold_bucket_id}/"
+            "--silver_path" = "s3://${var.silver_bucket_id}"
+            "--gold_path"   = "s3://${var.gold_bucket_id}"
+            "--run_date.$"  = "$.run_date"
           }
         }
         Next = "RunDDBETL"
@@ -88,15 +92,17 @@ locals {
         ]
       }
       RunDDBETL = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::glue:startJobRun.sync"
+        Type       = "Task"
+        Resource   = "arn:aws:states:::glue:startJobRun.sync"
+        ResultPath = "$.ddb_job"
         Parameters = {
           JobName = var.glue_ddb_job_name
           Arguments = {
-            "--gold_path"     = "s3://${var.gold_bucket_id}/"
-            "--table_hourly"  = "${var.environment}-kpi-hourly-streams"
-            "--table_daily"   = "${var.environment}-kpi-daily-streams"
-            "--table_monthly" = "${var.environment}-kpi-monthly-streams"
+            "--gold_path"        = "s3://${var.gold_bucket_id}"
+            "--table_genre_kpis" = var.genre_kpis_table_name
+            "--table_top_songs"  = var.top_songs_table_name
+            "--table_top_genres" = var.top_genres_table_name
+            "--run_date.$"       = "$.run_date"
           }
         }
         Next = "ArchiveFiles"
@@ -109,9 +115,14 @@ locals {
         ]
       }
       ArchiveFiles = {
-        Type     = "Task"
-        Resource = var.lambda_archiver_arn
-        End      = true
+        Type       = "Task"
+        Resource   = var.lambda_archiver_arn
+        ResultPath = "$.archive_result"
+        Parameters = {
+          "execution_id.$" = "$.execution_id"
+          "key.$"          = "$.key"
+        }
+        End = true
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
@@ -124,11 +135,21 @@ locals {
         Type     = "Task"
         Resource = "arn:aws:states:::sns:publish"
         Parameters = {
-          TopicArn = var.sns_alert_topic_arn
-          Message  = "Medallion pipeline failed for execution $$.Execution.Id at state $$.State.Name"
-          Subject  = "Pipeline Failure: $$.Execution.Id"
+          TopicArn    = var.sns_alert_topic_arn
+          "Message.$" = "States.Format('Medallion pipeline failed for execution {} at state {}. Bucket: {}, Key: {}', $$.Execution.Id, $$.State.Name, $.bucket, $.key)"
+          "Subject.$" = "States.Format('Pipeline Failure: {}', $.execution_id)"
         }
-        End = true
+        Next = "PipelineFailed"
+      }
+      ValidationFailed = {
+        Type  = "Fail"
+        Error = "DataValidationFailed"
+        Cause = "Input file failed validation and was quarantined."
+      }
+      PipelineFailed = {
+        Type  = "Fail"
+        Error = "PipelineExecutionFailed"
+        Cause = "Pipeline execution failed after notification was sent."
       }
     }
   })

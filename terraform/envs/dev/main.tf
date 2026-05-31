@@ -11,10 +11,11 @@ resource "aws_sns_topic" "alerts" {
 }
 
 resource "aws_sns_topic_subscription" "alerts_email" {
-  count     = var.sns_alert_email != "" ? 1 : 0
+  for_each = { for idx, email in var.sns_alert_emails : idx => email }
+
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
-  endpoint  = var.sns_alert_email
+  endpoint  = each.value
 }
 
 module "kms" {
@@ -111,6 +112,9 @@ module "step_functions" {
   bronze_bucket_id        = module.s3_data_lake.bronze_bucket_id
   silver_bucket_id        = module.s3_data_lake.silver_bucket_id
   gold_bucket_id          = module.s3_data_lake.gold_bucket_id
+  genre_kpis_table_name   = module.dynamodb_kpi.table_names_map["genre-kpis-daily"]
+  top_songs_table_name    = module.dynamodb_kpi.table_names_map["top-songs-by-genre-daily"]
+  top_genres_table_name   = module.dynamodb_kpi.table_names_map["top-genres-daily"]
 }
 
 module "eventbridge" {
@@ -120,6 +124,7 @@ module "eventbridge" {
   bronze_bucket_id        = module.s3_data_lake.bronze_bucket_id
   event_router_lambda_arn = module.lambda_functions.event_router_arn
   eventbridge_role_arn    = module.iam_roles.eventbridge_role_arn
+  dlq_arn                 = module.lambda_functions.pipeline_dlq_arn
 }
 
 module "athena" {

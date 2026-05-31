@@ -1,34 +1,19 @@
+import csv
+import io
 import json
 import os
-import sys
 from datetime import datetime, timezone
+
 import boto3
 
 s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
-ssm = boto3.client("ssm")
 
 BRONZE_BUCKET = os.environ["BRONZE_BUCKET"]
 DQ_TABLE_NAME = os.environ["DQ_TABLE_NAME"]
-EXPECTED_SCHEMA_TYPE = os.environ.get("EXPECTED_SCHEMA_TYPE", "music_stream")
-SSM_PARAM_PATH = os.environ.get("SSM_PARAM_PATH", "/dev/validator/expected_schema")
 
-REQUIRED_FIELDS = ["artist_id", "title", "event_timestamp", "user_id"]
-
-# Expected fields from Glue catalog bronze schema (used for drift detection)
-# Avoiding direct Glue API call to prevent VPC endpoint timeout issues
-EXPECTED_FIELDS = REQUIRED_FIELDS + [
-    "artist_name",
-    "album",
-    "duration_ms",
-    "genre",
-    "event_date",
-    "user_country",
-    "platform",
-    "play_duration_seconds",
-    "skipped",
-    "event_id",
-]
+REQUIRED_FIELDS = ["user_id", "track_id", "listen_time"]
+OPTIONAL_FIELDS = []
 
 
 def lambda_handler(event, context):
@@ -36,6 +21,7 @@ def lambda_handler(event, context):
     key = event.get("key", "")
     execution_id = event.get("execution_id", context.aws_request_id)
     event_time = event.get("event_time", datetime.now(timezone.utc).isoformat())
+    landing_date = event.get("landing_date", "")
 
     if not bucket or not key:
         return {
@@ -47,33 +33,36 @@ def lambda_handler(event, context):
     try:
         obj = s3.get_object(Bucket=bucket, Key=key)
         raw = obj["Body"].read().decode("utf-8")
-    except Exception as e:
+    except Exception as exc:
+        print(f"Failed to read {bucket}/{key}: {exc}")
         return {
             "valid": False,
             "execution_id": execution_id,
             "bucket": bucket,
             "key": key,
-            "error": f"Failed to read object: {str(e)}",
+            "error": f"Failed to read object: {exc}",
         }
 
-    records = _parse_json(raw)
-    record_count = len(records)
-    valid, errors = _validate_records(records)
-    drift = _detect_schema_drift(records)
+    rows = _parse_csv(raw)
+    record_count = len(rows)
+    valid, errors = _validate_records(rows)
+    drift = _detect_schema_drift(rows)
+    run_date = _derive_run_date(rows, landing_date)
 
-    manifest_key = key.replace(".json", "/manifest.json")
+    manifest_key = _manifest_key_for(key)
     manifest = {
         "source_key": key,
+        "landing_date": landing_date,
+        "run_date": run_date,
         "valid": valid,
         "record_count": record_count,
         "error_count": len(errors),
-        "schema_type": EXPECTED_SCHEMA_TYPE,
         "schema_drift": drift,
         "execution_id": execution_id,
         "validated_at": datetime.now(timezone.utc).isoformat(),
     }
-    if not valid:
-        manifest["errors"] = errors[:10]
+    if errors:
+        manifest["errors"] = errors[:20]
 
     s3.put_object(
         Bucket=bucket,
@@ -82,74 +71,115 @@ def lambda_handler(event, context):
         ContentType="application/json",
     )
 
-    tag_value = "false" if not valid else "true"
     s3.put_object_tagging(
         Bucket=bucket,
         Key=key,
-        Tagging={"TagSet": [{"Key": "validated", "Value": tag_value}]},
+        Tagging={
+            "TagSet": [
+                {"Key": "validated", "Value": "true" if valid else "false"},
+                {"Key": "pipeline_run_id", "Value": execution_id[:256]},
+                {"Key": "landing_date", "Value": landing_date[:256] if landing_date else "unknown"},
+            ]
+        },
     )
 
-    _write_dq_report(bucket, key, execution_id, event_time, record_count, errors, drift)
+    _write_dq_report(
+        bucket=bucket,
+        key=key,
+        execution_id=execution_id,
+        event_time=event_time,
+        record_count=record_count,
+        errors=errors,
+        drift=drift,
+    )
 
     return {
         "valid": valid,
         "execution_id": execution_id,
         "bucket": bucket,
         "key": key,
+        "landing_date": landing_date,
+        "run_date": run_date,
         "record_count": record_count,
         "error_count": len(errors),
         "schema_drift": drift,
     }
 
 
-def _parse_json(raw):
-    lines = raw.strip().split("\n")
-    if len(lines) == 1:
-        obj = json.loads(lines[0])
-        if isinstance(obj, list):
-            return obj
-        return [obj]
-    return [json.loads(line) for line in lines if line.strip()]
+def _parse_csv(raw):
+    reader = csv.DictReader(io.StringIO(raw))
+    return list(reader)
 
 
-def _validate_records(records):
+def _validate_records(rows):
     errors = []
-    for i, rec in enumerate(records):
-        if not isinstance(rec, dict):
-            errors.append(f"Record {i}: not a dict")
+
+    if not rows:
+        return False, ["CSV contains no data rows"]
+
+    for index, row in enumerate(rows, start=2):
+        if not isinstance(row, dict):
+            errors.append(f"Row {index}: not a structured record")
             continue
+
         for field in REQUIRED_FIELDS:
-            if (
-                field not in rec
-                or rec.get(field) is None
-                or str(rec.get(field, "")).strip() == ""
-            ):
-                errors.append(f"Record {i}: missing or empty required field '{field}'")
+            value = row.get(field)
+            if value is None or str(value).strip() == "":
+                errors.append(f"Row {index}: missing required field '{field}'")
+
     return len(errors) == 0, errors
 
 
-def _detect_schema_drift(records):
-    expected_set = set(EXPECTED_FIELDS)
-    observed_fields = set()
-    for rec in records:
-        if isinstance(rec, dict):
-            observed_fields.update(rec.keys())
+def _detect_schema_drift(rows):
+    if not rows:
+        return {"missing_required_fields": REQUIRED_FIELDS}
 
-    unknown = observed_fields - expected_set
-    missing = expected_set - observed_fields
+    observed_fields = set(rows[0].keys())
+    required_fields = set(REQUIRED_FIELDS)
+    optional_fields = set(OPTIONAL_FIELDS)
+    expected_fields = required_fields | optional_fields
 
     drift = {}
+    unknown = observed_fields - expected_fields
+    missing_required = required_fields - observed_fields
+    missing_optional = optional_fields - observed_fields
+
     if unknown:
         drift["unknown_fields"] = sorted(unknown)
-    if missing:
-        drift["missing_optional_fields"] = sorted(missing - set(REQUIRED_FIELDS))
-        drift["missing_required_fields"] = sorted(missing & set(REQUIRED_FIELDS))
+    if missing_required:
+        drift["missing_required_fields"] = sorted(missing_required)
+    if missing_optional:
+        drift["missing_optional_fields"] = sorted(missing_optional)
+
     return drift
 
 
-def _write_dq_report(
-    bucket, key, execution_id, event_time, record_count, errors, drift
-):
+def _derive_run_date(rows, landing_date):
+    observed_dates = []
+
+    for row in rows:
+        value = row.get("listen_time")
+        if not value:
+            continue
+        try:
+            observed_dates.append(datetime.strptime(value, "%Y-%m-%d %H:%M:%S").date())
+        except ValueError:
+            continue
+
+    if not observed_dates:
+        return landing_date
+
+    # Current source files are daily batches, so the event date in the data is the correct KPI date.
+    return min(observed_dates).isoformat()
+
+
+def _manifest_key_for(source_key):
+    if source_key.startswith("streams/"):
+        return f"streams/manifests/{source_key[len('streams/'):]}.json"
+    return f"streams/manifests/{source_key}.json"
+
+
+def _write_dq_report(bucket, key, execution_id, event_time, record_count, errors, drift):
     try:
         table = dynamodb.Table(DQ_TABLE_NAME)
         table.put_item(
@@ -166,5 +196,5 @@ def _write_dq_report(
                 "expires_at": int(datetime.now(timezone.utc).timestamp()) + 2592000,
             }
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"Failed to write DQ report for {bucket}/{key}: {exc}")

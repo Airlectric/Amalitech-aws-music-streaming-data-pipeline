@@ -8,3 +8,6 @@ vpc_cidr           = "10.0.0.0/16"
 private_subnet_cidr = "10.0.10.0/24"
 availability_zone  = "us-east-1a"
 bucket_suffix      = "YOUR_ACCOUNT_ID_HERE"
+
+# SNS alert email subscriptions (add to secrets.auto.tfvars instead for sensitive values)
+# sns_alert_emails = ["admin@example.com"]

@@ -37,3 +37,8 @@ output "function_arns" {
     quarantiner  = aws_lambda_function.quarantine_handler.arn
   }
 }
+
+output "pipeline_dlq_arn" {
+  description = "ARN of the pipeline dead-letter queue"
+  value       = aws_sqs_queue.pipeline_dlq.arn
+}

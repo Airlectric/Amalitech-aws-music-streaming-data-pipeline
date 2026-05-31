@@ -69,6 +69,26 @@ resource "aws_security_group_rule" "glue_egress_endpoints" {
   description              = "HTTPS to VPC endpoints"
 }
 
+resource "aws_security_group_rule" "glue_egress_s3_gateway" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [aws_vpc_endpoint.gateway["s3"].prefix_list_id]
+  security_group_id = aws_security_group.glue.id
+  description       = "HTTPS to S3 via gateway endpoint prefix list"
+}
+
+resource "aws_security_group_rule" "glue_egress_dynamodb_gateway" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [aws_vpc_endpoint.gateway["dynamodb"].prefix_list_id]
+  security_group_id = aws_security_group.glue.id
+  description       = "HTTPS to DynamoDB via gateway endpoint prefix list"
+}
+
 resource "aws_security_group_rule" "lambda_egress_endpoints" {
   type                     = "egress"
   from_port                = 443
@@ -77,6 +97,26 @@ resource "aws_security_group_rule" "lambda_egress_endpoints" {
   source_security_group_id = aws_security_group.endpoints.id
   security_group_id        = aws_security_group.lambda.id
   description              = "HTTPS to VPC endpoints"
+}
+
+resource "aws_security_group_rule" "lambda_egress_s3_gateway" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [aws_vpc_endpoint.gateway["s3"].prefix_list_id]
+  security_group_id = aws_security_group.lambda.id
+  description       = "HTTPS to S3 via gateway endpoint prefix list"
+}
+
+resource "aws_security_group_rule" "lambda_egress_dynamodb_gateway" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [aws_vpc_endpoint.gateway["dynamodb"].prefix_list_id]
+  security_group_id = aws_security_group.lambda.id
+  description       = "HTTPS to DynamoDB via gateway endpoint prefix list"
 }
 
 resource "aws_vpc_endpoint" "gateway" {
@@ -186,6 +226,7 @@ resource "aws_iam_role_policy" "flow_logs" {
 
 resource "aws_default_network_acl" "main" {
   default_network_acl_id = aws_vpc.main.default_network_acl_id
+  subnet_ids             = [aws_subnet.private.id]
 
   ingress {
     protocol   = "-1"

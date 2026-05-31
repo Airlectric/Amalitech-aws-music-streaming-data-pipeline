@@ -42,14 +42,20 @@ resource "aws_iam_role_policy" "glue_silver_s3" {
       {
         Sid      = "WriteSilver"
         Effect   = "Allow"
-        Action   = ["s3:PutObject"]
+        Action   = ["s3:PutObject", "s3:DeleteObject"]
         Resource = ["${var.bucket_arns["silver"]}/*"]
       },
       {
-        Sid      = "AccessGlueScripts"
+        Sid      = "ReadGlueScripts"
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject"]
-        Resource = ["${var.bucket_arns["glue_scripts"]}/*", var.bucket_arns["glue_scripts"]]
+        Action   = ["s3:GetObject"]
+        Resource = ["${var.bucket_arns["glue_scripts"]}/*"]
+      },
+      {
+        Sid      = "WriteGlueTemp"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${var.bucket_arns["glue_scripts"]}/temp/*"]
       },
     ]
   })
@@ -108,14 +114,20 @@ resource "aws_iam_role_policy" "glue_gold_s3" {
       {
         Sid      = "WriteGold"
         Effect   = "Allow"
-        Action   = ["s3:PutObject"]
+        Action   = ["s3:PutObject", "s3:DeleteObject"]
         Resource = ["${var.bucket_arns["gold"]}/*"]
       },
       {
-        Sid      = "AccessGlueScripts"
+        Sid      = "ReadGlueScripts"
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject"]
-        Resource = ["${var.bucket_arns["glue_scripts"]}/*", var.bucket_arns["glue_scripts"]]
+        Action   = ["s3:GetObject"]
+        Resource = ["${var.bucket_arns["glue_scripts"]}/*"]
+      },
+      {
+        Sid      = "WriteGlueTemp"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${var.bucket_arns["glue_scripts"]}/temp/*"]
       },
     ]
   })
@@ -172,10 +184,16 @@ resource "aws_iam_role_policy" "glue_ddb_s3" {
         Resource = ["${var.bucket_arns["gold"]}/*"]
       },
       {
-        Sid      = "AccessGlueScripts"
+        Sid      = "ReadGlueScripts"
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject"]
-        Resource = ["${var.bucket_arns["glue_scripts"]}/*", var.bucket_arns["glue_scripts"]]
+        Action   = ["s3:GetObject"]
+        Resource = ["${var.bucket_arns["glue_scripts"]}/*"]
+      },
+      {
+        Sid      = "WriteGlueTemp"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${var.bucket_arns["glue_scripts"]}/temp/*"]
       },
     ]
   })
@@ -241,9 +259,9 @@ resource "aws_iam_role" "lambda_validator" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-validator" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_validator_vpc" {
+resource "aws_iam_role_policy_attachment" "lambda_validator_basic" {
   role       = aws_iam_role.lambda_validator.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "lambda_validator_s3" {
@@ -269,27 +287,9 @@ resource "aws_iam_role_policy" "lambda_validator_s3" {
         Sid      = "WriteManifests"
         Effect   = "Allow"
         Action   = ["s3:PutObject"]
-        Resource = ["${var.bucket_arns["bronze"]}/streams/*/manifest.json"]
+        Resource = ["${var.bucket_arns["bronze"]}/streams/manifests/*"]
       },
     ]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_validator_ssm" {
-  name = "${var.environment}-lambda-validator-ssm"
-  role = aws_iam_role.lambda_validator.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid    = "ReadSSMParams"
-      Effect = "Allow"
-      Action = [
-        "ssm:GetParameter",
-        "ssm:GetParameters",
-      ]
-      Resource = ["arn:aws:ssm:${var.aws_region}:${local.account_id}:parameter/${var.environment}/*"]
-    }]
   })
 }
 
@@ -361,9 +361,9 @@ resource "aws_iam_role" "lambda_quarantiner" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-quarantiner" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_quarantiner_vpc" {
+resource "aws_iam_role_policy_attachment" "lambda_quarantiner_basic" {
   role       = aws_iam_role.lambda_quarantiner.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "lambda_quarantiner_s3" {
@@ -424,9 +424,9 @@ resource "aws_iam_role" "lambda_archiver" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-archiver" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_archiver_vpc" {
+resource "aws_iam_role_policy_attachment" "lambda_archiver_basic" {
   role       = aws_iam_role.lambda_archiver.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "lambda_archiver_s3" {
@@ -441,6 +441,7 @@ resource "aws_iam_role_policy" "lambda_archiver_s3" {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
+          "s3:GetObjectTagging",
           "s3:DeleteObject",
           "s3:ListBucket",
         ]
@@ -452,7 +453,7 @@ resource "aws_iam_role_policy" "lambda_archiver_s3" {
       {
         Sid      = "WriteArchive"
         Effect   = "Allow"
-        Action   = ["s3:PutObject"]
+        Action   = ["s3:PutObject", "s3:PutObjectTagging"]
         Resource = ["${var.bucket_arns["archive"]}/*"]
       },
     ]
@@ -502,12 +503,20 @@ resource "aws_iam_role_policy" "lambda_event_router_sfn" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid      = "StartStateMachine"
-      Effect   = "Allow"
-      Action   = ["states:StartExecution"]
-      Resource = [local.step_functions_arn]
-    }]
+    Statement = [
+      {
+        Sid      = "StartStateMachine"
+        Effect   = "Allow"
+        Action   = ["states:StartExecution"]
+        Resource = [local.step_functions_arn]
+      },
+      {
+        Sid      = "SendToDeadLetterQueue"
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = [local.pipeline_dlq_arn]
+      },
+    ]
   })
 }
 

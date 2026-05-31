@@ -6,61 +6,20 @@ A production-ready, event-driven serverless ETL pipeline on AWS that ingests mus
 
 ## Architecture
 
-```
-                  ┌──────────────┐
-                  │  Producer    │  (scripts/produce_streams.py)
-                  └──────┬───────┘
-                         │ CSV → bronze-format JSON
-                         ▼
-              ┌──────────────────────┐
-              │   Bronze S3 Bucket   │  Raw JSON landing zone
-              └──────────┬───────────┘
-                         │ S3 PutObject event
-                         ▼
-              ┌──────────────────────┐
-              │    EventBridge       │  Rule: dev-bronze-s3-put
-              └──────────┬───────────┘
-                         │ Invokes
-                         ▼
-              ┌──────────────────────┐
-              │   Event Router Lambda │  Routes to Step Functions
-              └──────────┬───────────┘
-                         │ StartExecution
-                         ▼
-              ┌─────────────────────────────────────────────┐
-              │        Step Functions State Machine         │
-              │         dev-medallion-pipeline              │
-              │                                             │
-              │  ValidateEvent → CheckValidation            │
-              │       │ valid          │ invalid            │
-              │       ▼                ▼                    │
-              │  RunSilverETL    QuarantineFile             │
-              │       ▼                ▼                    │
-              │  RunGoldETL     NotifyValidationFailure     │
-              │       ▼                                     │
-              │  RunDDBETL                                  │
-              │       ▼                                     │
-              │  ArchiveFiles                               │
-              │                                             │
-              │  Any failure → NotifyFailure (SNS)          │
-              └─────────────────────────────────────────────┘
-                         │
-          ┌──────────────┼──────────────────┐
-          ▼              ▼                  ▼
-    ┌──────────┐  ┌──────────┐  ┌──────────────────┐
-    │  Silver  │  │   Gold   │  │   DynamoDB KPI   │
-    │   S3     │  │   S3     │  │   (hourly/daily/  │
-    │  Parquet │  │  Parquet │  │    monthly)       │
-    └──────────┘  └──────────┘  └──────────────────┘
-                         │
-          ┌──────────────┴──────────────┐
-          ▼                             ▼
-    ┌──────────┐               ┌──────────────────┐
-    │  Athena  │               │  Archive S3      │
-    │  SQL     │               │  (long-term)     │
-    └──────────┘               └──────────────────┘
-```
+![Music Streaming ETL Pipeline Architecture](docs/pipeline-architecture-v3.png)
 
+### Diagram Walkthrough
+
+The numbered annotations in the diagram represent the main pipeline flow:
+
+1. **Landing in Bronze:** The producer uploads raw music-streaming JSON files into the Bronze S3 bucket, which acts as the immutable raw landing zone.
+2. **Event-driven orchestration:** The S3 object creation event is routed through EventBridge to Step Functions, which starts the ETL workflow.
+3. **Silver curation:** The Silver Glue job validates records, applies schema and type casting, removes duplicates, and prepares analytics-friendly curated data.
+4. **Silver serving layer:** The curated Silver output is written to Silver S3 and registered in the Glue Data Catalog so downstream query engines can discover it.
+5. **Gold + KPI serving:** Downstream Glue jobs build Gold aggregates and load the final KPI-serving dataset into DynamoDB for application access.
+6. **Archival path:** The Archiver Lambda stores long-term or replay-safe copies of pipeline artifacts in Archive S3.
+7. **Application consumption:** App clients query DynamoDB for fast operational KPI lookups after the ETL outputs have been materialized.
+8. **Alerting flow:** CloudWatch alarms trigger SNS notifications for pipeline failures and validation errors.
 ### Data Flow
 
 | Layer  | Format  | Description                                       |
@@ -223,11 +182,24 @@ Test coverage:
 
 ## Design Decisions
 
-### Why VPC-attached Lambdas?
-The validator, quarantiner, and archiver Lambdas run inside a VPC with VPC endpoints (S3 gateway, DynamoDB gateway, Glue/STS/KMS interface endpoints) to avoid traversing the public internet. The event router is intentionally VPC-external because it only calls Step Functions via the AWS API.
+### VPC / PrivateLink (current state)
+The VPC, private subnet, security groups, and the S3/DynamoDB gateway + interface endpoints
+listed below are **provisioned**, and they are the *intended* network boundary: the validator,
+quarantiner, and archiver Lambdas (and the Glue jobs) are meant to run inside the VPC so traffic
+stays off the public internet, while the event router stays VPC-external because it only calls
+Step Functions via the AWS API.
+
+> **Note:** in the current code the Lambdas have no `vpc_config` and the Glue jobs have no
+> `aws_glue_connection`, so compute is **not yet attached** to the VPC — it runs in the
+> AWS-managed network. Wiring this up (and adding a second AZ) is tracked as item **B1** in the
+> project correction plan (kept in the `Dannys_notes/` folder beside this repo); it needs an
+> apply→test loop because the in-VPC path previously hit Glue endpoint connectivity issues (see below).
 
 ### Why hardcoded schemas instead of Glue API?
-The initial validator called `glue:GetTable` to fetch the expected schema dynamically, but Glue API calls timed out from within the VPC (Glue interface endpoint connectivity issue). The current approach uses hardcoded expected fields in the Lambda code for reliability.
+The initial validator called `glue:GetTable` to fetch the expected schema dynamically, but Glue API
+calls timed out from within the VPC (Glue interface endpoint connectivity issue). The current
+approach uses hardcoded expected fields in the Lambda code for reliability. This can be revisited
+once the in-VPC connectivity is validated under B1.
 
 ### Why standard Step Functions vs Express?
 Standard workflows are used because the pipeline runs for minutes (Glue jobs take time) and needs exactly-once execution semantics. Express workflows would be cheaper for high-volume short executions but don't guarantee exactly-once.
@@ -276,6 +248,56 @@ After `terraform apply`, the following outputs are available:
 | `lambda_event_validator_arn` | Validator Lambda function |
 | `vpc_id` | VPC ID |
 | `glue_bronze_database_name` | Glue catalog database for bronze layer |
+
+---
+
+## Querying the KPIs (Sample DynamoDB Queries)
+
+The pipeline serves KPIs from DynamoDB (table names shown for the `dev` environment).
+`date` and `rank` are DynamoDB reserved words, so the examples alias them with
+`--expression-attribute-names`.
+
+**Daily genre KPIs** — `dev-genre-kpis-daily` (PK `genre`, SK `date`)
+
+```bash
+# All days for a genre
+aws dynamodb query --table-name dev-genre-kpis-daily \
+  --key-condition-expression "genre = :g" \
+  --expression-attribute-values '{":g":{"S":"pop"}}'
+
+# A single genre+day
+aws dynamodb get-item --table-name dev-genre-kpis-daily \
+  --key '{"genre":{"S":"pop"},"date":{"S":"2024-06-25"}}'
+```
+
+**Top 3 songs per genre per day** — `dev-top-songs-by-genre-daily` (PK `genre_date`, SK `rank`)
+
+```bash
+aws dynamodb query --table-name dev-top-songs-by-genre-daily \
+  --key-condition-expression "genre_date = :gd" \
+  --expression-attribute-values '{":gd":{"S":"pop#2024-06-25"}}'
+```
+
+**Top 5 genres per day** — `dev-top-genres-daily` (PK `date`, SK `rank`)
+
+```bash
+aws dynamodb query --table-name dev-top-genres-daily \
+  --key-condition-expression "#d = :date" \
+  --expression-attribute-names '{"#d":"date"}' \
+  --expression-attribute-values '{":date":{"S":"2024-06-25"}}'
+```
+
+**boto3 (Python)** — top 5 genres for a day, ordered by rank:
+
+```python
+import boto3
+from boto3.dynamodb.conditions import Key
+
+table = boto3.resource("dynamodb").Table("dev-top-genres-daily")
+resp = table.query(KeyConditionExpression=Key("date").eq("2024-06-25"))
+for row in resp["Items"]:
+    print(row["rank"], row["genre"], row["listen_count"])
+```
 
 ---
 

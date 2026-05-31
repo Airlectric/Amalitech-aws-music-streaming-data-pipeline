@@ -19,11 +19,11 @@ output "bronze_table_name" {
 }
 
 output "silver_table_name" {
-  description = "Name of the silver tracks table"
-  value       = aws_glue_catalog_table.silver_tracks.name
+  description = "Name of the silver curated streams table"
+  value       = aws_glue_catalog_table.silver_streams_curated.name
 }
 
 output "gold_table_name" {
-  description = "Name of the gold artist_streams table"
-  value       = aws_glue_catalog_table.gold_artist_streams.name
+  description = "Name of the primary gold genre KPI table"
+  value       = aws_glue_catalog_table.gold_genre_kpis_daily.name
 }

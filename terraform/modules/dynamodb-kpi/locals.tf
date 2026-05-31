@@ -6,27 +6,35 @@ locals {
   }
 
   tables = {
-    "kpi-hourly-streams" = {
-      pk          = "artist_id"
-      sk          = "hour_ts"
-      ttl_days    = 90
-      description = "Stream count per artist per hour"
-    }
-    "kpi-daily-streams" = {
-      pk          = "artist_id"
+    "genre-kpis-daily" = {
+      pk          = "genre"
+      pk_type     = "S"
       sk          = "date"
-      ttl_days    = 365
-      description = "Stream count per artist per day"
+      sk_type     = "S"
+      ttl_days    = 90
+      description = "Daily genre-level KPIs"
     }
-    "kpi-monthly-streams" = {
-      pk          = "artist_id"
-      sk          = "month"
-      ttl_days    = null
-      description = "Stream count per artist per month (never expires)"
+    "top-songs-by-genre-daily" = {
+      pk          = "genre_date"
+      pk_type     = "S"
+      sk          = "rank"
+      sk_type     = "N"
+      ttl_days    = 365
+      description = "Top songs per genre per day"
+    }
+    "top-genres-daily" = {
+      pk          = "date"
+      pk_type     = "S"
+      sk          = "rank"
+      sk_type     = "N"
+      ttl_days    = 365
+      description = "Top genres per day"
     }
     "dq-reports" = {
       pk          = "batch_id"
+      pk_type     = "S"
       sk          = "event_date"
+      sk_type     = "S"
       ttl_days    = 30
       description = "Data quality validation reports per batch"
     }

@@ -8,6 +8,10 @@ locals {
   lambda_event_router_arn = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-event-router"
   lambda_quarantiner_arn  = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-quarantine-handler"
 
+  # Pipeline dead-letter queue (created in the lambda-functions module). Referenced by
+  # ARN convention here to avoid an iam-roles <-> lambda-functions dependency cycle.
+  pipeline_dlq_arn = "arn:aws:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.environment}-pipeline-dlq"
+
   kms_decrypt = [
     "kms:Decrypt",
     "kms:GenerateDataKey*",

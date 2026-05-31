@@ -183,9 +183,9 @@ resource "aws_iam_role_policy" "github_actions" {
         Resource = ["*"]
       },
       {
-        Sid    = "PassRoles"
-        Effect = "Allow"
-        Action = ["iam:PassRole"]
+        Sid      = "PassRoles"
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
         Resource = ["*"]
         Condition = {
           StringEquals = {

@@ -17,3 +17,8 @@ variable "eventbridge_role_arn" {
   description = "ARN of the EventBridge IAM role"
   type        = string
 }
+
+variable "dlq_arn" {
+  description = "ARN of the SQS dead-letter queue for failed rule deliveries"
+  type        = string
+}

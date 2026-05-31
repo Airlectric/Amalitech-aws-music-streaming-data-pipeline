@@ -58,3 +58,18 @@ variable "gold_bucket_id" {
   description = "Gold S3 bucket ID (name)"
   type        = string
 }
+
+variable "genre_kpis_table_name" {
+  description = "DynamoDB table name for daily genre KPIs"
+  type        = string
+}
+
+variable "top_songs_table_name" {
+  description = "DynamoDB table name for top songs by genre per day"
+  type        = string
+}
+
+variable "top_genres_table_name" {
+  description = "DynamoDB table name for top genres per day"
+  type        = string
+}

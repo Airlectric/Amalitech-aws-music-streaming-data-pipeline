@@ -11,7 +11,7 @@ resource "aws_cloudwatch_event_rule" "bronze_s3_put" {
       }
       object = {
         key = [
-          { prefix = "streams/" }
+          { prefix = "streams/landing_date=" }
         ]
       }
     }
@@ -25,4 +25,14 @@ resource "aws_cloudwatch_event_target" "event_router" {
   target_id = "EventRouterLambda"
   arn       = var.event_router_lambda_arn
   role_arn  = var.eventbridge_role_arn
+
+  # Retry delivery, then dead-letter rather than drop the event.
+  retry_policy {
+    maximum_retry_attempts       = 2
+    maximum_event_age_in_seconds = 3600
+  }
+
+  dead_letter_config {
+    arn = var.dlq_arn
+  }
 }
