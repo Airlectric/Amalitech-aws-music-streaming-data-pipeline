@@ -52,7 +52,7 @@ The numbered annotations in the diagram represent the main pipeline flow:
 | Eventing | Amazon EventBridge, Amazon SQS (dead-letter queue) |
 | Compute | AWS Lambda (Python 3.11, VPC-attached) |
 | Analytics | Amazon Athena |
-| Security | KMS (CMKs), IAM (least privilege), multi-AZ VPC + PrivateLink endpoints |
+| Security | KMS (CMKs), IAM (least privilege), VPC + PrivateLink endpoints (single-AZ for cost) |
 | Observability | CloudWatch (logs, metrics, alarms, dashboard), X-Ray |
 | Notifications | Amazon SNS |
 | IaC | Terraform 1.7+, modular composition |
@@ -76,7 +76,7 @@ music-streaming-data-pipeline/
 │       ├── iam-roles/          # All IAM roles and policies (least privilege)
 │       ├── kms/                # KMS CMKs for S3, DynamoDB, Glue, logs
 │       ├── lambda-functions/   # Lambda functions + handler code
-│       ├── networking/         # multi-AZ VPC, private subnets, security groups, VPC endpoints
+│       ├── networking/         # VPC, private subnet(s), security groups, VPC endpoints (single-AZ default)
 │       ├── observability/      # CloudWatch dashboard and metric alarms
 │       ├── s3-data-lake/       # S3 buckets (bronze/silver/gold/quarantine/archive/glue-scripts/athena-results/access-logs)
 │       └── step-functions/     # Step Functions state machine definition
@@ -195,9 +195,11 @@ Compute runs **inside the VPC** so traffic stays off the public internet:
   (`--additional-python-modules`), which the no-NAT private subnet can't reach; it only talks to
   S3/DynamoDB over TLS.
 
-Subnets are **multi-AZ** (`availability_zones` / `private_subnet_cidrs`, defaulting to two AZs).
-All AWS API traffic egresses through the gateway endpoints (S3, DynamoDB) and interface endpoints
-listed below — there is no NAT/internet route.
+Networking is **single-AZ by default to minimize cost** — each interface VPC endpoint is billed
+per-AZ, so a second AZ would roughly double the endpoint spend for HA this project doesn't need.
+The subnet count is driven by `availability_zones` / `private_subnet_cidrs`, so it can scale to
+multi-AZ later by adding entries. All AWS API traffic egresses through the gateway endpoints
+(S3, DynamoDB) and the interface endpoints listed below — there is no NAT/internet route.
 
 > **Apply→test note:** an earlier iteration hit Glue interface-endpoint connectivity issues in-VPC
 > (see the schema note below). Validate the in-VPC Glue path on first `terraform apply`; if

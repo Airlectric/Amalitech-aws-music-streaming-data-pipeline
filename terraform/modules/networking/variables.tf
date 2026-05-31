@@ -10,15 +10,18 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "Availability zones for the private subnets (multi-AZ)"
+  # Single AZ by default to minimize cost: each interface VPC endpoint is billed
+  # per-AZ, so a second AZ would roughly double the endpoint spend for HA we don't
+  # need in a course/dev context. Add more AZs here to scale out when needed.
+  description = "Availability zones for the private subnets (single-AZ by default for cost)"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-1a"]
 }
 
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for the private subnets, one per availability zone"
   type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.11.0/24"]
+  default     = ["10.0.10.0/24"]
 
   validation {
     condition     = length(var.private_subnet_cidrs) == length(var.availability_zones)
