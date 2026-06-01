@@ -8,6 +8,8 @@ A production-ready, event-driven serverless ETL pipeline on AWS that ingests mus
 
 ![Music Streaming ETL Pipeline Architecture](docs/pipeline-architecture-v3.png)
 
+> The **VPC (single-AZ)** container encloses an explicit **Private Subnet 10.0.10.0/24 — PrivateLink** box that holds the Validator, Quarantine, and Archiver Lambdas plus the Silver and Gold Glue jobs. The Event Router Lambda and the DDB-Load Python Shell job sit outside the VPC by design (see steps 2–3 and 7 below).
+
 ### Diagram Walkthrough
 
 The numbered badges in the diagram correspond to the main pipeline flow steps:
