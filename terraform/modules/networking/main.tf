@@ -162,6 +162,15 @@ resource "aws_route_table_association" "private" {
 
 data "aws_region" "current" {}
 
+resource "terraform_data" "subnet_cidr_alignment" {
+  lifecycle {
+    precondition {
+      condition     = length(var.private_subnet_cidrs) == length(var.availability_zones)
+      error_message = "private_subnet_cidrs must have one CIDR per availability zone."
+    }
+  }
+}
+
 resource "aws_cloudwatch_log_group" "flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
 
