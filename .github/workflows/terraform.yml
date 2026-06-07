@@ -18,7 +18,7 @@ on:
       - "terraform/**"
       - "tests/**"
       - ".github/workflows/**"
-      - "scripts/**"
+      - "scripts/empty_terraform_s3_buckets.sh"
       - "pyproject.toml"
       - ".tflint.hcl"
   pull_request:
@@ -27,7 +27,7 @@ on:
       - "terraform/**"
       - "tests/**"
       - ".github/workflows/**"
-      - "scripts/**"
+      - "scripts/empty_terraform_s3_buckets.sh"
       - "pyproject.toml"
       - ".tflint.hcl"
 
@@ -225,6 +225,9 @@ jobs:
           sed -i "s/YOUR_LOCK_TABLE_NAME/${{ secrets.P1_TF_LOCK_TABLE }}/" backend.hcl
           sed -i "s|YOUR_KMS_KEY_ARN|${{ secrets.P1_TF_STATE_KMS_KEY_ARN }}|" backend.hcl
           terraform init -backend-config=backend.hcl
+
+      - name: Empty Terraform-managed S3 buckets
+        run: ../../../scripts/empty_terraform_s3_buckets.sh
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}"
