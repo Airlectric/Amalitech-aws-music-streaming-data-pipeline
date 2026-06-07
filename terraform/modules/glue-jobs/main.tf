@@ -26,8 +26,8 @@ resource "aws_s3_object" "ddb_etl_script" {
 # SILVER ETL: bronze JSON → silver Parquet
 # ────────────────────────────────────────────
 resource "aws_glue_job" "silver_etl" {
-  name        = "${var.environment}-silver-etl"
-  role_arn    = var.glue_silver_role_arn
+  name              = "${var.environment}-silver-etl"
+  role_arn          = var.glue_silver_role_arn
   glue_version      = "4.0"
   worker_type       = "G.1X"
   number_of_workers = var.worker_count
@@ -60,8 +60,8 @@ resource "aws_glue_job" "silver_etl" {
 # GOLD ETL: silver Parquet → gold aggregated Parquet
 # ────────────────────────────────────────────
 resource "aws_glue_job" "gold_etl" {
-  name        = "${var.environment}-gold-etl"
-  role_arn    = var.glue_gold_role_arn
+  name              = "${var.environment}-gold-etl"
+  role_arn          = var.glue_gold_role_arn
   glue_version      = "4.0"
   worker_type       = "G.1X"
   number_of_workers = var.worker_count
