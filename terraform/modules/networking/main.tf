@@ -41,6 +41,26 @@ resource "aws_security_group" "lambda" {
   tags = local.common_tags
 }
 
+resource "aws_security_group_rule" "glue_self_ingress" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  self              = true
+  security_group_id = aws_security_group.glue.id
+  description       = "Glue requires self-referencing ingress for NETWORK connections"
+}
+
+resource "aws_security_group_rule" "glue_self_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  self              = true
+  security_group_id = aws_security_group.glue.id
+  description       = "Glue requires self-referencing egress for NETWORK connections"
+}
+
 resource "aws_security_group_rule" "endpoints_ingress_glue" {
   type                     = "ingress"
   from_port                = 443
