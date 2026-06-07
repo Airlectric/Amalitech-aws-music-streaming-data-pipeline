@@ -180,6 +180,41 @@ resource "aws_iam_role_policy" "github_actions" {
   })
 }
 
+
+# Apply role: used only by the manual GitHub Actions apply job.
+# It trusts the protected GitHub Environment subject, so configure a `dev`
+# environment in GitHub and require approval before deployments.
+resource "aws_iam_role" "github_actions_apply" {
+  name = "${var.environment}-github-actions-terraform-apply"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "GitHubOIDCApplyEnvironment"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:environment:${var.environment}"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, { DeploymentAccess = "apply" })
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_apply_admin" {
+  role       = aws_iam_role.github_actions_apply.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
 resource "aws_dynamodb_table" "state_lock" {
   name         = var.lock_table_name
   billing_mode = "PAY_PER_REQUEST"

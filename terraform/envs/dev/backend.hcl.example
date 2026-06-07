@@ -2,5 +2,9 @@
 # Copy this file to backend.hcl and fill in your values
 # Usage: terraform init -backend-config=backend.hcl
 
-bucket         = "music-streaming-tfstate-YOUR_ACCOUNT_ID"
-use_lockfile   = true
+bucket         = "YOUR_STATE_BUCKET_NAME"
+key            = "terraform/dev/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "YOUR_LOCK_TABLE_NAME"
+encrypt        = true
+kms_key_id     = "YOUR_KMS_KEY_ARN"
