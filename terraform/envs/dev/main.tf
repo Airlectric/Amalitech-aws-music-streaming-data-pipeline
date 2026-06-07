@@ -28,6 +28,7 @@ module "networking" {
   environment = var.environment
 
   vpc_cidr             = var.vpc_cidr
+  public_subnet_cidr   = var.public_subnet_cidr
   availability_zones   = var.availability_zones
   private_subnet_cidrs = var.private_subnet_cidrs
   kms_key_arn          = module.kms.logs_key_arn

@@ -6,6 +6,15 @@ resource "aws_vpc" "main" {
   tags = merge(local.common_tags, { Name = "${var.environment}-main" })
 }
 
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zones[0]
+  map_public_ip_on_launch = false
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-public-${var.availability_zones[0]}" })
+}
+
 resource "aws_subnet" "private" {
   for_each = local.private_subnets
 
@@ -15,6 +24,29 @@ resource "aws_subnet" "private" {
   map_public_ip_on_launch = false
 
   tags = merge(local.common_tags, { Name = "${var.environment}-private-${each.key}" })
+}
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-igw" })
+}
+
+resource "aws_eip" "nat" {
+  domain = "vpc"
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-nat-eip" })
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-nat-gw" })
+
+  depends_on = [aws_internet_gateway.main]
 }
 
 resource "aws_security_group" "endpoints" {
@@ -89,6 +121,16 @@ resource "aws_security_group_rule" "glue_egress_endpoints" {
   source_security_group_id = aws_security_group.endpoints.id
   security_group_id        = aws_security_group.glue.id
   description              = "HTTPS to VPC endpoints"
+}
+
+resource "aws_security_group_rule" "glue_egress_https_all" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.glue.id
+  description       = "HTTPS egress for Glue bootstrap downloads"
 }
 
 resource "aws_security_group_rule" "glue_egress_s3_gateway" {
@@ -167,8 +209,29 @@ resource "aws_vpc_endpoint" "interface" {
   tags = merge(local.common_tags, { Name = "${var.environment}-vpce-${each.key}" })
 }
 
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-public" })
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
 
   tags = merge(local.common_tags, { Name = "${var.environment}-private" })
 }
