@@ -1,6 +1,4 @@
-import json
 import os
-from datetime import datetime, timezone
 import boto3
 
 s3 = boto3.client("s3")
