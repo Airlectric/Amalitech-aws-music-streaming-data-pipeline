@@ -1,75 +1,29 @@
 #!/usr/bin/env python3
 """Simulate real-world streaming data using the provided CSV files.
 
-Loads users.csv, songs.csv, and streams*.csv, then replays the events
-in unpredictable batches with variable timing — matching the bronze
-Glue catalog table schema.
+Uploads the reference CSV files and replays streams*.csv into router-compatible
+landing-date partitions.
 
 Usage:
-  python scripts/produce_streams.py bronze-108782069549         # ~500 events, ~2min demo
-  python scripts/produce_streams.py bronze-108782069549 --all   # all 34k events
-  python scripts/produce_streams.py bronze-108782069549 --burst # dump everything now
-  python scripts/produce_streams.py bronze-108782069549 --count 100
+  python3 scripts/produce_streams.py bronze-108782069549         # ~500 events, ~2min demo
+  python3 scripts/produce_streams.py bronze-108782069549 --all   # all 34k events
+  python3 scripts/produce_streams.py bronze-108782069549 --burst # dump everything now
+  python3 scripts/produce_streams.py bronze-108782069549 --count 100
 """
 
 import csv
-import json
+import io
 import os
 import random
 import time
 import uuid
+from datetime import datetime
 
 import boto3
-from collections import defaultdict
-from datetime import datetime, timezone
 
 
 BASE_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
-
-# ---------------------------------------------------------------------------
-# Platform options (keep it simple — 3 choices)
-# ---------------------------------------------------------------------------
-PLATFORMS = ("mobile", "web", "api")
-
-# User-country → short region (used downstream for grouping)
-COUNTRY_TO_REGION = defaultdict(
-    lambda: "ROW",
-    {
-        "United States": "US",
-        "Canada": "NA",
-        "Mexico": "LATAM",
-        "Brazil": "LATAM",
-        "Argentina": "LATAM",
-        "Colombia": "LATAM",
-        "Chile": "LATAM",
-        "Peru": "LATAM",
-        "United Kingdom": "EU",
-        "Germany": "EU",
-        "France": "EU",
-        "Spain": "EU",
-        "Italy": "EU",
-        "Netherlands": "EU",
-        "Ireland": "EU",
-        "Sweden": "EU",
-        "Norway": "EU",
-        "Denmark": "EU",
-        "Finland": "EU",
-        "Poland": "EU",
-        "Portugal": "EU",
-        "Belgium": "EU",
-        "Switzerland": "EU",
-        "Austria": "EU",
-        "Australia": "APAC",
-        "New Zealand": "APAC",
-        "Japan": "APAC",
-        "South Korea": "APAC",
-        "India": "APAC",
-        "China": "APAC",
-        "Nigeria": "AF",
-        "South Africa": "AF",
-        "Egypt": "AF",
-    },
-)
+STREAM_FIELDS = ["user_id", "track_id", "listen_time"]
 
 
 # ---------------------------------------------------------------------------
@@ -80,50 +34,13 @@ def _load_csv(path):
         return list(csv.DictReader(f))
 
 
-def load_users(path=None):
-    path = path or os.path.join(BASE_DATA_DIR, "users", "users.csv")
-    rows = _load_csv(path)
-    lookup = {}
-    for r in rows:
-        uid = r["user_id"].strip()
-        lookup[uid] = {
-            "user_id": uid,
-            "user_name": r["user_name"].strip(),
-            "user_age": int(r["user_age"]),
-            "user_country": r["user_country"].strip(),
-            "region": COUNTRY_TO_REGION[r["user_country"].strip()],
-        }
-    return lookup
-
-
-def load_songs(path=None):
-    path = path or os.path.join(BASE_DATA_DIR, "songs", "songs.csv")
-    rows = _load_csv(path)
-    lookup = {}
-    popularity_bins = []
-    for r in rows:
-        tid = r["track_id"].strip()
-        pop = int(r["popularity"])
-        lookup[tid] = {
-            "track_id": tid,
-            "title": r["track_name"].strip(),
-            "artist_name": r["artists"].strip(),
-            "artist_id": r["artists"].strip(),
-            "album": r["album_name"].strip(),
-            "duration_ms": int(r["duration_ms"]),
-            "genre": r["track_genre"].strip(),
-            "popularity": pop,
-        }
-        popularity_bins.extend([tid] * max(1, pop))
-    return lookup, popularity_bins
-
-
 def load_streams(paths=None):
     if paths is None:
         dir_ = os.path.join(BASE_DATA_DIR, "streams")
         paths = sorted(
             os.path.join(dir_, f) for f in os.listdir(dir_) if f.endswith(".csv")
         )
+
     events = []
     for p in paths:
         for r in _load_csv(p):
@@ -138,73 +55,60 @@ def load_streams(paths=None):
 
 
 # ---------------------------------------------------------------------------
-# Event generation
-# ---------------------------------------------------------------------------
-def build_events(stream_events, users, songs, pop_bins, count=None):
-    """Build bronze-format events from stream event pool."""
-
-    selected = stream_events
-    if count and count < len(selected):
-        weights = [songs.get(e["track_id"], {}).get("popularity", 1) for e in selected]
-        total = sum(weights)
-        probs = [w / total for w in weights] if total else None
-        idx = random.choices(range(len(selected)), weights=probs, k=count)
-        selected = [selected[i] for i in idx]
-
-    out = []
-    for se in selected:
-        track = songs.get(se["track_id"])
-        user = users.get(se["user_id"])
-        if not track or not user:
-            continue
-
-        listen_dt = datetime.strptime(se["listen_time"], "%Y-%m-%d %H:%M:%S")
-        event_date = listen_dt.strftime("%Y/%m/%d")
-
-        # Simulate listening behaviour
-        if random.random() < 0.08:
-            play_duration = 0
-            skipped = True
-        else:
-            max_play = max(5, track["duration_ms"] // 1000)
-            play_duration = random.randint(5, max_play)
-            skipped = False
-
-        out.append(
-            {
-                "event_id": str(uuid.uuid4()),
-                "artist_id": track["artist_id"],
-                "artist_name": track["artist_name"],
-                "title": track["title"],
-                "album": track["album"],
-                "duration_ms": track["duration_ms"],
-                "genre": track["genre"],
-                "event_date": event_date,
-                "event_timestamp": se["listen_time"],
-                "user_id": user["user_id"],
-                "user_country": user["user_country"],
-                "platform": random.choice(PLATFORMS),
-                "play_duration_seconds": play_duration,
-                "skipped": skipped,
-            }
-        )
-    return out
-
-
-# ---------------------------------------------------------------------------
 # Upload
 # ---------------------------------------------------------------------------
+def upload_reference_data(s3_client, bucket):
+    reference_files = [
+        (os.path.join(BASE_DATA_DIR, "users", "users.csv"), "reference/users/users.csv"),
+        (os.path.join(BASE_DATA_DIR, "songs", "songs.csv"), "reference/songs/songs.csv"),
+    ]
+
+    uploaded = []
+    for local_path, key in reference_files:
+        s3_client.upload_file(
+            local_path,
+            bucket,
+            key,
+            ExtraArgs={"ContentType": "text/csv"},
+        )
+        uploaded.append(key)
+    return uploaded
+
+
+def landing_date_for(event):
+    listen_dt = datetime.strptime(event["listen_time"], "%Y-%m-%d %H:%M:%S")
+    return listen_dt.strftime("%Y-%m-%d")
+
+
+def csv_body(events):
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=STREAM_FIELDS)
+    writer.writeheader()
+    writer.writerows(events)
+    return output.getvalue()
+
+
 def upload_batch(s3_client, bucket, events, prefix):
     if not events:
-        return None
+        return []
 
-    # Use the first event's event_date for the partition path
-    event_date = events[0]["event_date"]
-    filename = f"batch_{uuid.uuid4().hex[:8]}.json"
-    key = f"{prefix}{event_date}/{filename}"
-    body = "\n".join(json.dumps(e) for e in events)
-    s3_client.put_object(Bucket=bucket, Key=key, Body=body.encode())
-    return key
+    events_by_date = {}
+    for event in events:
+        events_by_date.setdefault(landing_date_for(event), []).append(event)
+
+    keys = []
+    base_prefix = prefix.rstrip("/")
+    for landing_date, rows in sorted(events_by_date.items()):
+        filename = f"batch_{uuid.uuid4().hex[:8]}.csv"
+        key = f"{base_prefix}/landing_date={landing_date}/{filename}"
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=csv_body(rows).encode("utf-8"),
+            ContentType="text/csv",
+        )
+        keys.append(key)
+    return keys
 
 
 # ---------------------------------------------------------------------------
@@ -217,9 +121,18 @@ def main():
         description="Simulate unpredictable streaming using real CSV data"
     )
     parser.add_argument("bucket", help="Bronze S3 bucket name")
-    parser.add_argument("--prefix", default="streams/", help="S3 key prefix")
+    parser.add_argument(
+        "--prefix",
+        default="streams",
+        help="S3 stream prefix; landing_date partitions are added below it",
+    )
     parser.add_argument("--profile", default=None, help="AWS profile name")
     parser.add_argument("--endpoint-url", default=None, help="S3 endpoint (localstack)")
+    parser.add_argument(
+        "--skip-reference-upload",
+        action="store_true",
+        help="Do not upload reference/users and reference/songs CSVs before stream batches",
+    )
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--burst", action="store_true", help="Upload all events at once")
@@ -252,12 +165,17 @@ def main():
     session = boto3.Session(profile_name=args.profile)
     s3 = session.client("s3", endpoint_url=args.endpoint_url)
 
-    # ---- Load data ---------------------------------------------------------
     print("Loading data...")
-    users = load_users()
-    songs, pop_bins = load_songs()
+    users = _load_csv(os.path.join(BASE_DATA_DIR, "users", "users.csv"))
+    songs = _load_csv(os.path.join(BASE_DATA_DIR, "songs", "songs.csv"))
     streams = load_streams()
     print(f"  {len(users)} users, {len(songs)} songs, {len(streams)} stream events")
+
+    if not args.skip_reference_upload:
+        reference_keys = upload_reference_data(s3, args.bucket)
+        print("Uploaded reference data:")
+        for key in reference_keys:
+            print(f"  -> {key}")
 
     total_to_process = len(streams)
     if args.count:
@@ -266,16 +184,17 @@ def main():
         total_to_process = min(500, total_to_process)
 
     if args.burst:
-        events = build_events(streams, users, songs, pop_bins, count=total_to_process)
-        key = upload_batch(s3, args.bucket, events, args.prefix)
-        print(f"Burst: {len(events)} events → {key}")
+        events = streams[:total_to_process]
+        keys = upload_batch(s3, args.bucket, events, args.prefix)
+        print(f"Burst: {len(events)} events")
+        for key in keys:
+            print(f"  -> {key}")
         return
 
     print(f"Streaming {total_to_process} events in unpredictable batches...")
-    print(f"  batch size: {args.min_batch}–{args.max_batch}")
-    print(f"  delay: {args.min_delay}–{args.max_delay}s")
+    print(f"  batch size: {args.min_batch}-{args.max_batch}")
+    print(f"  delay: {args.min_delay}-{args.max_delay}s")
 
-    # Shuffle & track remaining
     remaining = random.sample(streams, total_to_process)
     batch_num = 0
     pos = 0
@@ -284,16 +203,14 @@ def main():
         while pos < len(remaining):
             batch_size = random.randint(args.min_batch, args.max_batch)
             end = min(pos + batch_size, len(remaining))
-            batch = remaining[pos:end]
+            events = remaining[pos:end]
 
-            events = build_events(batch, users, songs, pop_bins)
-            key = upload_batch(s3, args.bucket, events, args.prefix)
+            keys = upload_batch(s3, args.bucket, events, args.prefix)
             batch_num += 1
             pct = end / len(remaining) * 100
             print(
                 f"  [{batch_num}] batch={len(events)} "
-                f"date={events[0]['event_date'] if events else '?'} "
-                f"({pct:.0f}%) → {key}"
+                f"({pct:.0f}%) -> {', '.join(keys)}"
             )
 
             pos = end
