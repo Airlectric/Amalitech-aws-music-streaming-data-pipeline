@@ -9,6 +9,12 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+variable "public_subnet_cidr" {
+  description = "CIDR block for the public subnet that holds the NAT Gateway"
+  type        = string
+  default     = "10.0.0.0/24"
+}
+
 variable "availability_zones" {
   # Single AZ by default to minimize cost: each interface VPC endpoint is billed
   # per-AZ, so a second AZ would roughly double the endpoint spend for HA we don't
