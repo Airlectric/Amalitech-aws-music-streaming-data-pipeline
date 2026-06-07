@@ -10,29 +10,9 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
 
-variable "public_subnet_cidr" {
-  description = "CIDR block for the public subnet that holds the NAT Gateway"
-  type        = string
-  default     = "10.0.0.0/24"
-}
 
-variable "availability_zones" {
-  description = "Availability zones for the private subnets (single-AZ by default for cost)"
-  type        = list(string)
-  default     = ["us-east-1a"]
-}
 
-variable "private_subnet_cidrs" {
-  description = "CIDR blocks for the private subnets, one per availability zone"
-  type        = list(string)
-  default     = ["10.0.10.0/24"]
-}
 
 variable "bucket_suffix" {
   description = "Unique suffix for S3 bucket names (e.g., account ID or project name)"

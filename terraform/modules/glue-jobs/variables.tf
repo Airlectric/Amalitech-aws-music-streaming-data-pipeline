@@ -43,20 +43,8 @@ variable "dynamodb_kpi_table_names" {
   type        = map(string)
 }
 
-variable "private_subnet_id" {
-  description = "Private subnet ID for the Glue NETWORK connection"
-  type        = string
-}
 
-variable "glue_subnet_az" {
-  description = "Availability zone of the Glue NETWORK connection subnet"
-  type        = string
-}
 
-variable "security_group_glue_id" {
-  description = "Security group ID for Glue jobs"
-  type        = string
-}
 
 variable "max_retries" {
   description = "Maximum number of retries for Glue jobs"

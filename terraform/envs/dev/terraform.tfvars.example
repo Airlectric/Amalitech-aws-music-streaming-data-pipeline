@@ -4,9 +4,6 @@
 
 environment          = "dev"
 aws_region           = "us-east-1"
-vpc_cidr             = "10.0.0.0/16"
-availability_zones   = ["us-east-1a"]
-private_subnet_cidrs = ["10.0.10.0/24"]
 bucket_suffix        = "YOUR_ACCOUNT_ID_HERE"
 
 # SNS alert email subscriptions (add to secrets.auto.tfvars instead for sensitive values)
