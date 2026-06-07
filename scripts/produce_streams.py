@@ -21,7 +21,7 @@ import uuid
 
 import boto3
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime
 
 
 BASE_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
