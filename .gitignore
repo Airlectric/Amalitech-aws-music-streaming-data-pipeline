@@ -16,6 +16,7 @@ terraform.rc
 !*.tfvars.example
 .terraform.tfstate.lock.info
 tfplan
+tfplan.local
 *.tfplan
 
 # Python
@@ -95,3 +96,6 @@ backend*.hcl
 lambdas/**/package/
 lambdas/**/*.zip
 .aws-sam/
+
+# Draw.io source exports are local-only; commit rendered images instead
+*.drawio.xml
