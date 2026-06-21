@@ -265,7 +265,7 @@ def main():
         )
     )
 
-    curated_df.write.mode("overwrite").partitionBy("event_date").parquet(f"{silver_path}/streams_curated")
+    curated_df.coalesce(1).write.mode("overwrite").partitionBy("event_date").parquet(f"{silver_path}/streams_curated")
     spark.stop()
 
 

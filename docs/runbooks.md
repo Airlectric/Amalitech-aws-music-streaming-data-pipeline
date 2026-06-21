@@ -16,6 +16,7 @@
 6. [Schema-evolution procedure](#6-schema-evolution-procedure)
 7. [Disaster recovery](#7-disaster-recovery)
 8. [DDB capacity and hot-partition notes](#8-ddb-capacity-and-hot-partition-notes)
+9. [Output file-size tuning](#9-output-file-size-tuning)
 
 ---
 
@@ -472,3 +473,50 @@ If a future load profile shows hot partitions on `genre_date` in `top-songs-by-g
 daily`, consider appending a shard suffix to the PK (`genre_date#shard`) and
 aggregating on read. This is not implemented today; the on-demand mode handles current
 load comfortably.
+
+---
+
+## 9. Output file-size tuning
+
+### Why `coalesce(1)` is used
+
+`partitionBy()` writes one Parquet file **per Spark task** inside each date partition.
+Glue's default shuffle parallelism is often 200 partitions, which produces hundreds of
+tiny files (< 1 KB each) per daily partition — even for modest daily volumes. This
+causes:
+
+- **Athena cost**: each tiny file is a separate S3 `GET`; Athena charges per-byte
+  scanned and performs badly with many small files because it pays per-split overhead
+  regardless of content size.
+- **DDB-ETL slowness**: `ddb_etl.py` pages through all Parquet files in a partition;
+  more files = more `GetObject` calls for the same total bytes.
+- **S3 cost**: more `PUT` and `LIST` calls at write time.
+
+Both `silver_etl` and `gold_etl` call `.coalesce(1)` immediately before the write.
+This merges all Spark partitions for the day into a single task, producing exactly
+**one Parquet file per daily output partition**. Given that each run processes one
+CSV file (at most ~34k rows, tens of MB), a single output file per partition is the
+right target — the file stays well below the Parquet-optimal 128–256 MB threshold,
+and there is no benefit to splitting it.
+
+### When to change this
+
+If daily event volume grows significantly (hundreds of millions of rows / multiple GB
+per day), `coalesce(1)` forces all data through a single writer task and becomes a
+bottleneck. At that point, switch to `repartition(n)` (which triggers a full shuffle)
+and size `n` so each output file is ~128 MB:
+
+```python
+# Example: ~2 GB / day → 16 × 128 MB files
+df.repartition(16).write.mode("overwrite").partitionBy("event_date").parquet(path)
+```
+
+Track file sizes in S3 with:
+
+```bash
+aws s3 ls s3://{silver-bucket}/streams_curated/event_date=YYYY-MM-DD/ \
+  --human-readable --summarize
+```
+
+Upgrade `coalesce(1)` → `repartition(n)` in the Glue job scripts and adjust the
+`number_of_workers` setting in `terraform/modules/glue-jobs/variables.tf` accordingly.

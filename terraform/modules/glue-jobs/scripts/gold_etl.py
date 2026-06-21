@@ -111,13 +111,13 @@ def main():
         .withColumn("source_execution_id", F.lit(execution_id))
     )
 
-    genre_kpis_df.write.mode("overwrite").partitionBy("date").parquet(
+    genre_kpis_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
         f"{gold_path}/genre_kpis_daily"
     )
-    top_songs_df.write.mode("overwrite").partitionBy("date").parquet(
+    top_songs_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
         f"{gold_path}/top_songs_by_genre_daily"
     )
-    top_genres_df.write.mode("overwrite").partitionBy("date").parquet(
+    top_genres_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
         f"{gold_path}/top_genres_daily"
     )
 
