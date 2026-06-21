@@ -80,12 +80,16 @@ def to_decimal(value, default="0"):
 
 
 def _emit_load_metrics(cw_client, run_date, counts):
-    """Emit per-table row-count metrics to CloudWatch (MusicPipeline/DQ)."""
-    dims = [{"Name": "Job", "Value": "ddb_etl"}, {"Name": "RunDate", "Value": run_date}]
-    metric_data = [
-        {"MetricName": k, "Value": float(v), "Unit": "Count", "Dimensions": dims}
-        for k, v in counts.items()
-    ]
+    """Emit per-table row-count metrics to CloudWatch (MusicPipeline/DQ).
+
+    Emits at two granularities: [Job, RunDate] for dashboards and [Job] for alarms.
+    """
+    job_run_dims = [{"Name": "Job", "Value": "ddb_etl"}, {"Name": "RunDate", "Value": run_date}]
+    job_dims = [{"Name": "Job", "Value": "ddb_etl"}]
+    metric_data = []
+    for k, v in counts.items():
+        metric_data.append({"MetricName": k, "Value": float(v), "Unit": "Count", "Dimensions": job_run_dims})
+        metric_data.append({"MetricName": k, "Value": float(v), "Unit": "Count", "Dimensions": job_dims})
     for i in range(0, len(metric_data), 20):
         cw_client.put_metric_data(Namespace=_CW_NAMESPACE, MetricData=metric_data[i : i + 20])
 

@@ -168,3 +168,71 @@ resource "aws_cloudwatch_metric_alarm" "dq_drop_rate" {
 
   tags = merge(local.common_tags, { Name = "${var.environment}-silver-dq-drop-rate-high" })
 }
+
+# ---------------------------------------------------------------------------
+# DDB load count alarms — fire when any KPI table load produces zero rows.
+# GenreKpisLoaded, TopSongsLoaded, TopGenresLoaded are emitted by ddb_etl
+# with dimension Job=ddb_etl (no RunDate) for alarm-friendly tracking.
+# ---------------------------------------------------------------------------
+resource "aws_cloudwatch_metric_alarm" "ddb_genre_kpis_zero" {
+  alarm_name          = "${var.environment}-ddb-genre-kpis-zero"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "GenreKpisLoaded"
+  namespace           = "MusicPipeline/DQ"
+  period              = "86400"
+  statistic           = "Sum"
+  threshold           = "1"
+  treat_missing_data  = "notBreaching"
+  alarm_description   = "DDB ETL loaded zero genre KPI rows — gold_etl may have produced an empty partition."
+  alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
+
+  dimensions = {
+    Job = "ddb_etl"
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-ddb-genre-kpis-zero" })
+}
+
+resource "aws_cloudwatch_metric_alarm" "ddb_top_songs_zero" {
+  alarm_name          = "${var.environment}-ddb-top-songs-zero"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "TopSongsLoaded"
+  namespace           = "MusicPipeline/DQ"
+  period              = "86400"
+  statistic           = "Sum"
+  threshold           = "1"
+  treat_missing_data  = "notBreaching"
+  alarm_description   = "DDB ETL loaded zero top-songs rows — gold_etl may have produced an empty partition."
+  alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
+
+  dimensions = {
+    Job = "ddb_etl"
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-ddb-top-songs-zero" })
+}
+
+resource "aws_cloudwatch_metric_alarm" "ddb_top_genres_zero" {
+  alarm_name          = "${var.environment}-ddb-top-genres-zero"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "TopGenresLoaded"
+  namespace           = "MusicPipeline/DQ"
+  period              = "86400"
+  statistic           = "Sum"
+  threshold           = "1"
+  treat_missing_data  = "notBreaching"
+  alarm_description   = "DDB ETL loaded zero top-genres rows — gold_etl may have produced an empty partition."
+  alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
+
+  dimensions = {
+    Job = "ddb_etl"
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-ddb-top-genres-zero" })
+}
