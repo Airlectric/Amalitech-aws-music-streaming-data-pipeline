@@ -195,10 +195,14 @@ resource "aws_iam_role_policy" "glue_ddb_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "ReadGold"
-        Effect   = "Allow"
-        Action   = ["s3:GetObject"]
-        Resource = ["${var.bucket_arns["gold"]}/*"]
+        Sid    = "ReadGold"
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = [
+          "${var.bucket_arns["gold"]}/genre_kpis_daily/date=*",
+          "${var.bucket_arns["gold"]}/top_songs_by_genre_daily/date=*",
+          "${var.bucket_arns["gold"]}/top_genres_daily/date=*",
+        ]
       },
       {
         Sid      = "ReadGlueScripts"
@@ -489,18 +493,23 @@ resource "aws_iam_role_policy" "lambda_archiver_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ReadDeleteBronze"
+        Sid      = "ListBronzeStreams"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = [var.bucket_arns["bronze"]]
+        Condition = {
+          StringLike = { "s3:prefix" = ["streams/landing_date=*"] }
+        }
+      },
+      {
+        Sid    = "ReadDeleteBronzeStreams"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:GetObjectTagging",
           "s3:DeleteObject",
-          "s3:ListBucket",
         ]
-        Resource = [
-          var.bucket_arns["bronze"],
-          "${var.bucket_arns["bronze"]}/streams/*",
-        ]
+        Resource = ["${var.bucket_arns["bronze"]}/streams/landing_date=*"]
       },
       {
         Sid      = "WriteArchive"
@@ -691,7 +700,13 @@ resource "aws_iam_role_policy" "step_functions_xray" {
       Action = [
         "xray:PutTraceSegments",
         "xray:PutTelemetryRecords",
+        # Required for X-Ray sampling: SFN fetches the current sampling rules at
+        # the start of each execution to decide which traces to record.
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets",
       ]
+      # X-Ray trace operations are not resource-scoped in IAM; the service
+      # requires "*" for all four actions above.
       Resource = ["*"]
     }]
   })
