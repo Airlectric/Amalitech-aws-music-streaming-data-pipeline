@@ -13,7 +13,7 @@ on:
           - apply
           - destroy
   push:
-    branches: [develop]
+    branches: [develop, main]
     paths:
       - "terraform/**"
       - "tests/**"
@@ -22,7 +22,7 @@ on:
       - "pyproject.toml"
       - ".tflint.hcl"
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
     paths:
       - "terraform/**"
       - "tests/**"
