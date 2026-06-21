@@ -1,3 +1,6 @@
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 resource "aws_cloudwatch_dashboard" "pipeline" {
   dashboard_name = "${var.environment}-pipeline-overview"
   dashboard_body = jsonencode({
@@ -235,4 +238,110 @@ resource "aws_cloudwatch_metric_alarm" "ddb_top_genres_zero" {
   }
 
   tags = merge(local.common_tags, { Name = "${var.environment}-ddb-top-genres-zero" })
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# CLOUDTRAIL — audit trail for S3, Glue, Lambda, and Step Functions API calls
+# ────────────────────────────────────────────────────────────────────────────
+resource "aws_s3_bucket" "cloudtrail_logs" {
+  bucket        = "${var.environment}-pipeline-cloudtrail-logs-${data.aws_caller_identity.current.account_id}"
+  force_destroy = false
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-cloudtrail-logs" })
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = var.kms_key_arn
+      sse_algorithm     = "aws:kms"
+    }
+    bucket_key_enabled = true
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
+  bucket                  = aws_s3_bucket.cloudtrail_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail_logs" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  rule {
+    id     = "expire-old-logs"
+    status = "Enabled"
+
+    filter { prefix = "" }
+
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+
+    expiration {
+      days = 365
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail_logs" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AWSCloudTrailAclCheck"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action   = "s3:GetBucketAcl"
+        Resource = aws_s3_bucket.cloudtrail_logs.arn
+      },
+      {
+        Sid    = "AWSCloudTrailWrite"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl" = "bucket-owner-full-control"
+          }
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_cloudtrail" "pipeline" {
+  name                          = "${var.environment}-pipeline-trail"
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
+  include_global_service_events = true
+  is_multi_region_trail         = false
+  enable_log_file_validation    = true
+  kms_key_id                    = var.kms_key_arn
+
+  event_selector {
+    read_write_type           = "All"
+    include_management_events = true
+
+    data_resource {
+      type   = "AWS::S3::Object"
+      values = ["arn:aws:s3:::${var.s3_bronze_bucket_name}/"]
+    }
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-pipeline-trail" })
+
+  depends_on = [aws_s3_bucket_policy.cloudtrail_logs]
 }
