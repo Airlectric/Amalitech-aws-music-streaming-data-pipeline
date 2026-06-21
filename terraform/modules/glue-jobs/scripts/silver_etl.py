@@ -1,26 +1,9 @@
 import sys
 
-from awsglue.utils import getResolvedOptions
 from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.types import IntegerType, LongType, StringType, StructField, StructType
 
-args = getResolvedOptions(
-    sys.argv,
-    ["bronze_bucket", "stream_key", "silver_path"],
-)
-
-bronze_bucket = args["bronze_bucket"]
-stream_key = args["stream_key"]
-silver_path = args["silver_path"].rstrip("/")
-
-stream_path = f"s3://{bronze_bucket}/{stream_key}"
-songs_path = f"s3://{bronze_bucket}/reference/songs/"
-users_path = f"s3://{bronze_bucket}/reference/users/"
-
-spark = SparkSession.builder.appName("SilverETL").getOrCreate()
-spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
-
-streams_schema = StructType(
+STREAMS_SCHEMA = StructType(
     [
         StructField("user_id", IntegerType(), False),
         StructField("track_id", StringType(), False),
@@ -28,7 +11,7 @@ streams_schema = StructType(
     ]
 )
 
-songs_schema = StructType(
+SONGS_SCHEMA = StructType(
     [
         StructField("id", IntegerType(), True),
         StructField("track_id", StringType(), False),
@@ -54,7 +37,7 @@ songs_schema = StructType(
     ]
 )
 
-users_schema = StructType(
+USERS_SCHEMA = StructType(
     [
         StructField("user_id", IntegerType(), False),
         StructField("user_name", StringType(), True),
@@ -64,21 +47,20 @@ users_schema = StructType(
     ]
 )
 
-streams_df = (
-    spark.read.option("header", "true")
-    .schema(streams_schema)
-    .csv(stream_path)
-    .dropna(subset=["user_id", "track_id", "listen_time"])
-    .dropDuplicates(["user_id", "track_id", "listen_time"])
-    .withColumn("listen_ts", F.to_timestamp("listen_time", "yyyy-MM-dd HH:mm:ss"))
-    .dropna(subset=["listen_ts"])
-)
 
-songs_df = (
-    spark.read.option("header", "true")
-    .schema(songs_schema)
-    .csv(songs_path)
-    .select(
+def clean_streams(df):
+    """Drop rows missing required fields, dedup, and parse listen_ts."""
+    return (
+        df.dropna(subset=["user_id", "track_id", "listen_time"])
+        .dropDuplicates(["user_id", "track_id", "listen_time"])
+        .withColumn("listen_ts", F.to_timestamp("listen_time", "yyyy-MM-dd HH:mm:ss"))
+        .dropna(subset=["listen_ts"])
+    )
+
+
+def select_songs(df):
+    """Narrow songs DataFrame to the columns used downstream."""
+    return df.select(
         "track_id",
         "artists",
         "album_name",
@@ -86,43 +68,78 @@ songs_df = (
         "duration_ms",
         "track_genre",
     )
-)
 
-users_df = (
-    spark.read.option("header", "true")
-    .schema(users_schema)
-    .csv(users_path)
-    .select("user_id", "user_country")
-)
 
-curated_df = (
-    streams_df.join(songs_df, on="track_id", how="inner")
-    .join(users_df, on="user_id", how="left")
-    .withColumn("event_date", F.to_date("listen_ts"))
-    .withColumn("genre", F.lower(F.trim(F.col("track_genre"))))
-    .withColumn("listen_seconds", F.col("duration_ms") / F.lit(1000.0))
-    .withColumn("source_file", F.lit(stream_path))
-    .select(
-        "user_id",
-        "track_id",
-        "track_name",
-        "artists",
-        "album_name",
-        "genre",
-        "listen_time",
-        "listen_ts",
-        "event_date",
-        "duration_ms",
-        "listen_seconds",
-        "user_country",
-        "source_file",
+def select_users(df):
+    """Narrow users DataFrame to the columns used downstream."""
+    return df.select("user_id", "user_country")
+
+
+def build_curated(streams_df, songs_df, users_df, source_file):
+    """Join streams with songs and users; derive genre, listen_seconds, event_date."""
+    return (
+        streams_df.join(songs_df, on="track_id", how="inner")
+        .join(users_df, on="user_id", how="left")
+        .withColumn("event_date", F.to_date("listen_ts"))
+        .withColumn("genre", F.lower(F.trim(F.col("track_genre"))))
+        .withColumn("listen_seconds", F.col("duration_ms") / F.lit(1000.0))
+        .withColumn("source_file", F.lit(source_file))
+        .select(
+            "user_id",
+            "track_id",
+            "track_name",
+            "artists",
+            "album_name",
+            "genre",
+            "listen_time",
+            "listen_ts",
+            "event_date",
+            "duration_ms",
+            "listen_seconds",
+            "user_country",
+            "source_file",
+        )
     )
-)
 
-(
-    curated_df.write.mode("overwrite")
-    .partitionBy("event_date")
-    .parquet(f"{silver_path}/streams_curated")
-)
 
-spark.stop()
+def main():
+    from awsglue.utils import getResolvedOptions
+
+    args = getResolvedOptions(
+        sys.argv,
+        ["bronze_bucket", "stream_key", "silver_path"],
+    )
+    bronze_bucket = args["bronze_bucket"]
+    stream_key = args["stream_key"]
+    silver_path = args["silver_path"].rstrip("/")
+
+    stream_path = f"s3://{bronze_bucket}/{stream_key}"
+    songs_path = f"s3://{bronze_bucket}/reference/songs/"
+    users_path = f"s3://{bronze_bucket}/reference/users/"
+
+    spark = SparkSession.builder.appName("SilverETL").getOrCreate()
+    spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
+
+    streams_df = clean_streams(
+        spark.read.option("header", "true").schema(STREAMS_SCHEMA).csv(stream_path)
+    )
+    songs_df = select_songs(
+        spark.read.option("header", "true").schema(SONGS_SCHEMA).csv(songs_path)
+    )
+    users_df = select_users(
+        spark.read.option("header", "true").schema(USERS_SCHEMA).csv(users_path)
+    )
+
+    curated_df = build_curated(streams_df, songs_df, users_df, stream_path)
+
+    (
+        curated_df.write.mode("overwrite")
+        .partitionBy("event_date")
+        .parquet(f"{silver_path}/streams_curated")
+    )
+
+    spark.stop()
+
+
+if __name__ == "__main__":
+    main()
