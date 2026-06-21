@@ -39,7 +39,7 @@ def spark():
         SparkSession.builder.master("local[1]")
         .appName("test-music-pipeline")
         .config("spark.ui.enabled", "false")
-        .config("spark.driver.memory", "512m")
+        .config("spark.driver.memory", "1g")
         .getOrCreate()
     )
     yield session
