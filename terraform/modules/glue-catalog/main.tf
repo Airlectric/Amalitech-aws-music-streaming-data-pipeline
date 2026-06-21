@@ -324,6 +324,16 @@ resource "aws_glue_catalog_table" "silver_streams_curated" {
       name = "source_file"
       type = "string"
     }
+
+    columns {
+      name = "ingested_at"
+      type = "string"
+    }
+
+    columns {
+      name = "source_execution_id"
+      type = "string"
+    }
   }
 
   partition_keys {
@@ -381,6 +391,16 @@ resource "aws_glue_catalog_table" "gold_genre_kpis_daily" {
     columns {
       name = "avg_listen_seconds_per_user"
       type = "double"
+    }
+
+    columns {
+      name = "ingested_at"
+      type = "string"
+    }
+
+    columns {
+      name = "source_execution_id"
+      type = "string"
     }
   }
 
@@ -445,6 +465,16 @@ resource "aws_glue_catalog_table" "gold_top_songs_by_genre_daily" {
       name = "play_count"
       type = "bigint"
     }
+
+    columns {
+      name = "ingested_at"
+      type = "string"
+    }
+
+    columns {
+      name = "source_execution_id"
+      type = "string"
+    }
   }
 
   partition_keys {
@@ -492,6 +522,16 @@ resource "aws_glue_catalog_table" "gold_top_genres_daily" {
     columns {
       name = "listen_count"
       type = "bigint"
+    }
+
+    columns {
+      name = "ingested_at"
+      type = "string"
+    }
+
+    columns {
+      name = "source_execution_id"
+      type = "string"
     }
   }
 

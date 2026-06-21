@@ -5,6 +5,8 @@ import types
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 GLUE_SCRIPTS_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -56,3 +58,55 @@ def test_read_partition_rows_merges_partition_values(mock_read_table):
             "unique_listeners": 2,
         }
     ]
+
+
+@patch("ddb_etl.pq.read_table")
+def test_read_partition_rows_poison_partition_raises_runtime_error(mock_read_table):
+    """Verify that a corrupted Parquet file triggers RuntimeError naming the bad key."""
+    mock_s3 = MagicMock()
+    mock_s3.get_paginator.return_value.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "gold/date=2024-06-25/part-0000.parquet"},
+                {"Key": "gold/date=2024-06-25/part-0001.parquet"},
+            ]
+        }
+    ]
+    mock_s3.get_object.return_value = {"Body": io.BytesIO(b"bytes")}
+
+    good_table = MagicMock()
+    good_table.to_pylist.return_value = [{"genre": "Pop"}]
+    mock_read_table.side_effect = [good_table, ValueError("not a parquet file")]
+
+    with pytest.raises(RuntimeError) as exc_info:
+        read_partition_rows(mock_s3, "s3://bucket/gold/date=2024-06-25")
+
+    assert "gold/date=2024-06-25/part-0001.parquet" in str(exc_info.value)
+    assert "1 Parquet file" in str(exc_info.value)
+
+
+@patch("ddb_etl.pq.read_table")
+def test_read_partition_rows_multiple_bad_keys_all_listed(mock_read_table):
+    """RuntimeError lists every bad key when multiple partitions are corrupted."""
+    mock_s3 = MagicMock()
+    mock_s3.get_paginator.return_value.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "gold/date=2024-06-25/part-0000.parquet"},
+                {"Key": "gold/date=2024-06-25/part-0001.parquet"},
+            ]
+        }
+    ]
+    mock_s3.get_object.return_value = {"Body": io.BytesIO(b"bytes")}
+    mock_read_table.side_effect = [
+        OSError("corrupt"),
+        OSError("corrupt"),
+    ]
+
+    with pytest.raises(RuntimeError) as exc_info:
+        read_partition_rows(mock_s3, "s3://bucket/gold/date=2024-06-25")
+
+    error_msg = str(exc_info.value)
+    assert "gold/date=2024-06-25/part-0000.parquet" in error_msg
+    assert "gold/date=2024-06-25/part-0001.parquet" in error_msg
+    assert "2 Parquet file" in error_msg

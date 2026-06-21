@@ -29,11 +29,11 @@ resource "aws_glue_job" "silver_etl" {
   name              = "${var.environment}-silver-etl"
   role_arn          = var.glue_silver_role_arn
   glue_version      = "4.0"
-  worker_type       = "G.1X"
-  number_of_workers = var.worker_count
+  worker_type       = var.silver_worker_type
+  number_of_workers = var.silver_worker_count
 
   max_retries = var.max_retries
-  timeout     = var.timeout_minutes
+  timeout     = var.silver_timeout_minutes
 
   command {
     name            = "glueetl"
@@ -41,13 +41,16 @@ resource "aws_glue_job" "silver_etl" {
     python_version  = "3.9"
   }
 
-  default_arguments = {
-    "--job-language"                     = "python"
-    "--job-bookmark-option"              = "job-bookmark-disable" # orchestrator passes the run partition explicitly and the job overwrites it; bookmarks would be dead config
-    "--enable-continuous-cloudwatch-log" = "true"
-    "--enable-metrics"                   = "true"
-    "--TempDir"                          = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/silver/"
-  }
+  default_arguments = merge(
+    {
+      "--job-language"                     = "python"
+      "--job-bookmark-option"              = "job-bookmark-disable" # orchestrator passes the run partition explicitly and the job overwrites it; bookmarks would be dead config
+      "--enable-continuous-cloudwatch-log" = "true"
+      "--enable-metrics"                   = "true"
+      "--TempDir"                          = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/silver/"
+    },
+    var.enable_auto_scaling ? { "--enable-auto-scaling" = "true" } : {}
+  )
 
   execution_property {
     max_concurrent_runs = 1
@@ -63,11 +66,11 @@ resource "aws_glue_job" "gold_etl" {
   name              = "${var.environment}-gold-etl"
   role_arn          = var.glue_gold_role_arn
   glue_version      = "4.0"
-  worker_type       = "G.1X"
-  number_of_workers = var.worker_count
+  worker_type       = var.gold_worker_type
+  number_of_workers = var.gold_worker_count
 
   max_retries = var.max_retries
-  timeout     = var.timeout_minutes
+  timeout     = var.gold_timeout_minutes
 
   command {
     name            = "glueetl"
@@ -75,13 +78,16 @@ resource "aws_glue_job" "gold_etl" {
     python_version  = "3.9"
   }
 
-  default_arguments = {
-    "--job-language"                     = "python"
-    "--job-bookmark-option"              = "job-bookmark-disable" # orchestrator passes the run partition explicitly and the job overwrites it; bookmarks would be dead config
-    "--enable-continuous-cloudwatch-log" = "true"
-    "--enable-metrics"                   = "true"
-    "--TempDir"                          = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/gold/"
-  }
+  default_arguments = merge(
+    {
+      "--job-language"                     = "python"
+      "--job-bookmark-option"              = "job-bookmark-disable" # orchestrator passes the run partition explicitly and the job overwrites it; bookmarks would be dead config
+      "--enable-continuous-cloudwatch-log" = "true"
+      "--enable-metrics"                   = "true"
+      "--TempDir"                          = "s3://${var.glue_scripts_bucket_id}/temp/${var.environment}/gold/"
+    },
+    var.enable_auto_scaling ? { "--enable-auto-scaling" = "true" } : {}
+  )
 
   execution_property {
     max_concurrent_runs = 1
@@ -110,7 +116,7 @@ resource "aws_glue_job" "ddb_etl" {
   max_capacity = 1.0
 
   max_retries = var.max_retries
-  timeout     = var.timeout_minutes
+  timeout     = var.ddb_timeout_minutes
 
   command {
     name            = "pythonshell"

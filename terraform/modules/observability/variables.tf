@@ -32,3 +32,13 @@ variable "s3_bronze_bucket_name" {
   description = "Name of the Bronze S3 bucket"
   type        = string
 }
+
+variable "dlq_name" {
+  description = "Name of the pipeline dead-letter SQS queue (used as CloudWatch SQS dimension)"
+  type        = string
+}
+
+variable "kms_key_arn" {
+  description = "ARN of the KMS key used to encrypt CloudTrail logs at rest (SSE-KMS)"
+  type        = string
+}

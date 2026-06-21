@@ -13,7 +13,7 @@ on:
           - apply
           - destroy
   push:
-    branches: [develop]
+    branches: [develop, main]
     paths:
       - "terraform/**"
       - "tests/**"
@@ -22,7 +22,7 @@ on:
       - "pyproject.toml"
       - ".tflint.hcl"
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
     paths:
       - "terraform/**"
       - "tests/**"
@@ -53,6 +53,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
 
       - name: Install dependencies
         run: pip install -r tests/requirements.txt
@@ -125,7 +130,7 @@ jobs:
 
       - name: Terraform Plan
         run: |
-          terraform plan -lock=false -no-color -out=tfplan -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}"
+          terraform plan -no-color -out=tfplan -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}"
           terraform show -no-color tfplan > tfplan.txt
 
       - name: Upload Plan Artifact

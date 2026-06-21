@@ -75,6 +75,23 @@ resource "aws_iam_role_policy" "glue_silver_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "glue_silver_cloudwatch" {
+  name = "${var.environment}-glue-silver-cloudwatch"
+  role = aws_iam_role.glue_silver.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudwatch:PutMetricData"]
+      Resource = ["*"]
+      Condition = {
+        StringEquals = { "cloudwatch:namespace" = "MusicPipeline/DQ" }
+      }
+    }]
+  })
+}
+
 # ────────────────────────────────────────────
 # GLUE GOLD ROLE: silver → gold
 # ────────────────────────────────────────────
@@ -147,6 +164,23 @@ resource "aws_iam_role_policy" "glue_gold_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "glue_gold_cloudwatch" {
+  name = "${var.environment}-glue-gold-cloudwatch"
+  role = aws_iam_role.glue_gold.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudwatch:PutMetricData"]
+      Resource = ["*"]
+      Condition = {
+        StringEquals = { "cloudwatch:namespace" = "MusicPipeline/DQ" }
+      }
+    }]
+  })
+}
+
 # ────────────────────────────────────────────
 # GLUE DDB ROLE: gold → DynamoDB KPI tables
 # ────────────────────────────────────────────
@@ -178,10 +212,14 @@ resource "aws_iam_role_policy" "glue_ddb_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "ReadGold"
-        Effect   = "Allow"
-        Action   = ["s3:GetObject"]
-        Resource = ["${var.bucket_arns["gold"]}/*"]
+        Sid    = "ReadGold"
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = [
+          "${var.bucket_arns["gold"]}/genre_kpis_daily/date=*",
+          "${var.bucket_arns["gold"]}/top_songs_by_genre_daily/date=*",
+          "${var.bucket_arns["gold"]}/top_genres_daily/date=*",
+        ]
       },
       {
         Sid      = "ReadGlueScripts"
@@ -241,6 +279,23 @@ resource "aws_iam_role_policy" "glue_ddb_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "glue_ddb_cloudwatch" {
+  name = "${var.environment}-glue-ddb-cloudwatch"
+  role = aws_iam_role.glue_ddb.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudwatch:PutMetricData"]
+      Resource = ["*"]
+      Condition = {
+        StringEquals = { "cloudwatch:namespace" = "MusicPipeline/DQ" }
+      }
+    }]
+  })
+}
+
 # ────────────────────────────────────────────
 # LAMBDA VALIDATOR ROLE
 # ────────────────────────────────────────────
@@ -259,9 +314,26 @@ resource "aws_iam_role" "lambda_validator" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-validator" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_validator_basic" {
+resource "aws_iam_role_policy" "lambda_validator_logs" {
+  name = "${var.environment}-lambda-validator-logs"
+  role = aws_iam_role.lambda_validator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-event-validator:*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_validator_xray" {
   role       = aws_iam_role.lambda_validator.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 
@@ -362,9 +434,26 @@ resource "aws_iam_role" "lambda_quarantiner" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-quarantiner" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_quarantiner_basic" {
+resource "aws_iam_role_policy" "lambda_quarantiner_logs" {
+  name = "${var.environment}-lambda-quarantiner-logs"
+  role = aws_iam_role.lambda_quarantiner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-quarantine-handler:*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_quarantiner_xray" {
   role       = aws_iam_role.lambda_quarantiner.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 
@@ -426,9 +515,26 @@ resource "aws_iam_role" "lambda_archiver" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-archiver" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_archiver_basic" {
+resource "aws_iam_role_policy" "lambda_archiver_logs" {
+  name = "${var.environment}-lambda-archiver-logs"
+  role = aws_iam_role.lambda_archiver.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-stream-archiver:*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_archiver_xray" {
   role       = aws_iam_role.lambda_archiver.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 
@@ -440,18 +546,23 @@ resource "aws_iam_role_policy" "lambda_archiver_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ReadDeleteBronze"
+        Sid      = "ListBronzeStreams"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = [var.bucket_arns["bronze"]]
+        Condition = {
+          StringLike = { "s3:prefix" = ["streams/landing_date=*"] }
+        }
+      },
+      {
+        Sid    = "ReadDeleteBronzeStreams"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:GetObjectTagging",
           "s3:DeleteObject",
-          "s3:ListBucket",
         ]
-        Resource = [
-          var.bucket_arns["bronze"],
-          "${var.bucket_arns["bronze"]}/streams/*",
-        ]
+        Resource = ["${var.bucket_arns["bronze"]}/streams/landing_date=*"]
       },
       {
         Sid      = "WriteArchive"
@@ -495,9 +606,26 @@ resource "aws_iam_role" "lambda_event_router" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-event-router" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_event_router_basic" {
+resource "aws_iam_role_policy" "lambda_event_router_logs" {
+  name = "${var.environment}-lambda-event-router-logs"
+  role = aws_iam_role.lambda_event_router.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-event-router:*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_event_router_xray" {
   role       = aws_iam_role.lambda_event_router.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 resource "aws_iam_role_policy" "lambda_event_router_sfn" {
@@ -637,7 +765,13 @@ resource "aws_iam_role_policy" "step_functions_xray" {
       Action = [
         "xray:PutTraceSegments",
         "xray:PutTelemetryRecords",
+        # Required for X-Ray sampling: SFN fetches the current sampling rules at
+        # the start of each execution to decide which traces to record.
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets",
       ]
+      # X-Ray trace operations are not resource-scoped in IAM; the service
+      # requires "*" for all four actions above.
       Resource = ["*"]
     }]
   })

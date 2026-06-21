@@ -130,6 +130,8 @@ module "observability" {
   eventbridge_rule_name            = module.eventbridge.event_rule_name
   sns_topic_arn                    = aws_sns_topic.alerts.arn
   s3_bronze_bucket_name            = module.s3_data_lake.bronze_bucket_id
+  dlq_name                         = module.lambda_functions.pipeline_dlq_name
+  kms_key_arn                      = module.kms.s3_data_lake_key_arn
 }
 
 module "iam_roles" {
