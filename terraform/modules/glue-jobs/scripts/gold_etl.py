@@ -71,9 +71,29 @@ def main():
     spark = SparkSession.builder.appName("GoldETL").getOrCreate()
     spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
 
-    silver_df = spark.read.parquet(f"{silver_path}/streams_curated").filter(
-        F.col("event_date") == F.to_date(F.lit(run_date))
-    )
+    # Read only the single-day partition rather than the whole table.
+    # basePath tells Spark the Hive root so it re-materialises the `event_date`
+    # column from the directory name (partitionBy strips it from Parquet files).
+    partition_path = f"{silver_path}/streams_curated/event_date={run_date}"
+    try:
+        silver_df = (
+            spark.read
+            .option("basePath", f"{silver_path}/streams_curated")
+            .parquet(partition_path)
+        )
+        if not silver_df.head(1):
+            raise ValueError(
+                f"Silver partition for run_date={run_date} is empty at {partition_path}. "
+                "Verify that silver_etl completed successfully before running gold_etl."
+            )
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(
+            f"Cannot read Silver partition for run_date={run_date} at {partition_path}. "
+            f"Ensure silver_etl completed successfully before running gold_etl. "
+            f"Original error: {exc}"
+        ) from exc
 
     genre_kpis_df = (
         compute_genre_kpis(silver_df)
