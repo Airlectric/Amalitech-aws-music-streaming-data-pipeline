@@ -164,6 +164,23 @@ resource "aws_iam_role_policy" "glue_gold_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "glue_gold_cloudwatch" {
+  name = "${var.environment}-glue-gold-cloudwatch"
+  role = aws_iam_role.glue_gold.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudwatch:PutMetricData"]
+      Resource = ["*"]
+      Condition = {
+        StringEquals = { "cloudwatch:namespace" = "MusicPipeline/DQ" }
+      }
+    }]
+  })
+}
+
 # ────────────────────────────────────────────
 # GLUE DDB ROLE: gold → DynamoDB KPI tables
 # ────────────────────────────────────────────

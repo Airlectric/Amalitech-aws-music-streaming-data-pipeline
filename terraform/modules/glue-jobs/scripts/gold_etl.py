@@ -1,7 +1,10 @@
 import sys
 
+import boto3
 from pyspark.sql import SparkSession, Window
 from pyspark.sql import functions as F
+
+_CW_NAMESPACE = "MusicPipeline/DQ"
 
 
 def _get_arg_default(key, default):
@@ -58,6 +61,17 @@ def compute_top_genres(df, n=5):
     )
 
 
+def _emit_gold_metrics(cw_client, run_date, counts):
+    """Emit Gold row-count metrics to CloudWatch (MusicPipeline/DQ)."""
+    dims = [{"Name": "Job", "Value": "gold_etl"}, {"Name": "RunDate", "Value": run_date}]
+    metric_data = [
+        {"MetricName": k, "Value": float(v), "Unit": "Count", "Dimensions": dims}
+        for k, v in counts.items()
+    ]
+    for i in range(0, len(metric_data), 20):
+        cw_client.put_metric_data(Namespace=_CW_NAMESPACE, MetricData=metric_data[i : i + 20])
+
+
 def main():
     from awsglue.utils import getResolvedOptions
 
@@ -99,27 +113,44 @@ def main():
         compute_genre_kpis(silver_df)
         .withColumn("ingested_at", F.lit(execution_start_time))
         .withColumn("source_execution_id", F.lit(execution_id))
+        .cache()
     )
+    genre_kpis_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
+        f"{gold_path}/genre_kpis_daily"
+    )
+    genre_kpis_count = genre_kpis_df.count()
+    genre_kpis_df.unpersist()
+
     top_songs_df = (
         compute_top_songs(silver_df)
         .withColumn("ingested_at", F.lit(execution_start_time))
         .withColumn("source_execution_id", F.lit(execution_id))
-    )
-    top_genres_df = (
-        compute_top_genres(silver_df)
-        .withColumn("ingested_at", F.lit(execution_start_time))
-        .withColumn("source_execution_id", F.lit(execution_id))
-    )
-
-    genre_kpis_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
-        f"{gold_path}/genre_kpis_daily"
+        .cache()
     )
     top_songs_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
         f"{gold_path}/top_songs_by_genre_daily"
     )
+    top_songs_count = top_songs_df.count()
+    top_songs_df.unpersist()
+
+    top_genres_df = (
+        compute_top_genres(silver_df)
+        .withColumn("ingested_at", F.lit(execution_start_time))
+        .withColumn("source_execution_id", F.lit(execution_id))
+        .cache()
+    )
     top_genres_df.coalesce(1).write.mode("overwrite").partitionBy("date").parquet(
         f"{gold_path}/top_genres_daily"
     )
+    top_genres_count = top_genres_df.count()
+    top_genres_df.unpersist()
+
+    cw = boto3.client("cloudwatch")
+    _emit_gold_metrics(cw, run_date, {
+        "GenreKpisRows": genre_kpis_count,
+        "TopSongsRows": top_songs_count,
+        "TopGenresRows": top_genres_count,
+    })
 
     spark.stop()
 
