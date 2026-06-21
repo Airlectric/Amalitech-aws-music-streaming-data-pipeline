@@ -75,6 +75,23 @@ resource "aws_iam_role_policy" "glue_silver_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "glue_silver_cloudwatch" {
+  name = "${var.environment}-glue-silver-cloudwatch"
+  role = aws_iam_role.glue_silver.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudwatch:PutMetricData"]
+      Resource = ["*"]
+      Condition = {
+        StringEquals = { "cloudwatch:namespace" = "MusicPipeline/DQ" }
+      }
+    }]
+  })
+}
+
 # ────────────────────────────────────────────
 # GLUE GOLD ROLE: silver → gold
 # ────────────────────────────────────────────
