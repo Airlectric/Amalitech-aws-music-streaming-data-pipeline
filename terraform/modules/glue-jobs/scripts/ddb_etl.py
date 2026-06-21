@@ -1,6 +1,7 @@
 import io
 import math
 import sys
+import time
 from decimal import Decimal
 
 import boto3
@@ -94,6 +95,43 @@ def _emit_load_metrics(cw_client, run_date, counts):
         cw_client.put_metric_data(Namespace=_CW_NAMESPACE, MetricData=metric_data[i : i + 20])
 
 
+def _batch_write_with_retry(ddb_resource, table_name, items, max_attempts=5):
+    """Write items to DynamoDB using BatchWriteItem with UnprocessedItems retry.
+
+    Unlike batch_writer(), this correctly detects and retries items that were not
+    processed due to throttling or capacity errors, raising RuntimeError if items
+    remain unprocessed after max_attempts.
+    Returns the total number of items successfully written.
+    """
+    pending = [{"PutRequest": {"Item": item}} for item in items]
+    written = 0
+    attempt = 0
+
+    while pending and attempt < max_attempts:
+        # DynamoDB BatchWriteItem accepts at most 25 requests per call.
+        batch = pending[:25]
+        remaining = pending[25:]
+
+        response = ddb_resource.batch_write_item(
+            RequestItems={table_name: batch}
+        )
+        unprocessed = response.get("UnprocessedItems", {}).get(table_name, [])
+        written += len(batch) - len(unprocessed)
+        pending = unprocessed + remaining
+
+        if pending:
+            attempt += 1
+            time.sleep(2 ** attempt * 0.1)  # exponential back-off: 0.2s, 0.4s, 0.8s …
+
+    if pending:
+        raise RuntimeError(
+            f"BatchWriteItem: {len(pending)} items remain unprocessed after "
+            f"{max_attempts} attempts for table '{table_name}'. "
+            "Check DynamoDB capacity and CloudWatch throttling metrics."
+        )
+    return written
+
+
 def main():
     from awsglue.utils import getResolvedOptions
 
@@ -118,74 +156,50 @@ def main():
     top_songs_rows = read_partition_rows(s3_client, f"{gold_path}/top_songs_by_genre_daily/date={run_date}")
     top_genres_rows = read_partition_rows(s3_client, f"{gold_path}/top_genres_daily/date={run_date}")
 
-    # --- Write genre KPIs and reconcile ---
-    genre_kpis_written = 0
-    genre_kpis_table = ddb.Table(table_genre_kpis)
-    with genre_kpis_table.batch_writer() as batch:
-        for row in genre_kpis_rows:
-            batch.put_item(
-                Item={
-                    "genre": row["genre"],
-                    "date": row["date"],
-                    "listen_count": int(row["listen_count"]),
-                    "unique_listeners": int(row["unique_listeners"]),
-                    "total_listen_seconds": to_decimal(row["total_listen_seconds"]),
-                    "avg_listen_seconds_per_user": to_decimal(row["avg_listen_seconds_per_user"]),
-                    "ingested_at": execution_start_time,
-                    "source_execution_id": execution_id,
-                }
-            )
-            genre_kpis_written += 1
-    if genre_kpis_written != len(genre_kpis_rows):
-        raise RuntimeError(
-            f"Reconciliation failed for {table_genre_kpis}: "
-            f"read {len(genre_kpis_rows)} rows but submitted {genre_kpis_written} put_item calls."
-        )
+    # --- Write genre KPIs ---
+    genre_kpis_items = [
+        {
+            "genre": row["genre"],
+            "date": row["date"],
+            "listen_count": int(row["listen_count"]),
+            "unique_listeners": int(row["unique_listeners"]),
+            "total_listen_seconds": to_decimal(row["total_listen_seconds"]),
+            "avg_listen_seconds_per_user": to_decimal(row["avg_listen_seconds_per_user"]),
+            "ingested_at": execution_start_time,
+            "source_execution_id": execution_id,
+        }
+        for row in genre_kpis_rows
+    ]
+    genre_kpis_written = _batch_write_with_retry(ddb, table_genre_kpis, genre_kpis_items)
 
-    # --- Write top songs and reconcile ---
-    top_songs_written = 0
-    top_songs_table = ddb.Table(table_top_songs)
-    with top_songs_table.batch_writer() as batch:
-        for row in top_songs_rows:
-            batch.put_item(
-                Item={
-                    "genre_date": row["genre_date"],
-                    "rank": int(row["rank"]),
-                    "track_id": row["track_id"],
-                    "track_name": row["track_name"],
-                    "play_count": int(row["play_count"]),
-                    "ingested_at": execution_start_time,
-                    "source_execution_id": execution_id,
-                }
-            )
-            top_songs_written += 1
-    if top_songs_written != len(top_songs_rows):
-        raise RuntimeError(
-            f"Reconciliation failed for {table_top_songs}: "
-            f"read {len(top_songs_rows)} rows but submitted {top_songs_written} put_item calls."
-        )
+    # --- Write top songs ---
+    top_songs_items = [
+        {
+            "genre_date": row["genre_date"],
+            "rank": int(row["rank"]),
+            "track_id": row["track_id"],
+            "track_name": row["track_name"],
+            "play_count": int(row["play_count"]),
+            "ingested_at": execution_start_time,
+            "source_execution_id": execution_id,
+        }
+        for row in top_songs_rows
+    ]
+    top_songs_written = _batch_write_with_retry(ddb, table_top_songs, top_songs_items)
 
-    # --- Write top genres and reconcile ---
-    top_genres_written = 0
-    top_genres_table = ddb.Table(table_top_genres)
-    with top_genres_table.batch_writer() as batch:
-        for row in top_genres_rows:
-            batch.put_item(
-                Item={
-                    "date": row["date"],
-                    "rank": int(row["rank"]),
-                    "genre": row["genre"],
-                    "listen_count": int(row["listen_count"]),
-                    "ingested_at": execution_start_time,
-                    "source_execution_id": execution_id,
-                }
-            )
-            top_genres_written += 1
-    if top_genres_written != len(top_genres_rows):
-        raise RuntimeError(
-            f"Reconciliation failed for {table_top_genres}: "
-            f"read {len(top_genres_rows)} rows but submitted {top_genres_written} put_item calls."
-        )
+    # --- Write top genres ---
+    top_genres_items = [
+        {
+            "date": row["date"],
+            "rank": int(row["rank"]),
+            "genre": row["genre"],
+            "listen_count": int(row["listen_count"]),
+            "ingested_at": execution_start_time,
+            "source_execution_id": execution_id,
+        }
+        for row in top_genres_rows
+    ]
+    top_genres_written = _batch_write_with_retry(ddb, table_top_genres, top_genres_items)
 
     # --- Emit load metrics and structured summary ---
     counts = {
