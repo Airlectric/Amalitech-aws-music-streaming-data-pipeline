@@ -29,6 +29,23 @@ def pytest_configure(config):
     )
 
 
+@pytest.fixture(scope="session")
+def spark():
+    """Session-scoped SparkSession for PySpark tests. Skipped when pyspark/Java is absent."""
+    pytest.importorskip("pyspark", reason="PySpark not installed — skipping Spark tests")
+    from pyspark.sql import SparkSession
+
+    session = (
+        SparkSession.builder.master("local[1]")
+        .appName("test-music-pipeline")
+        .config("spark.ui.enabled", "false")
+        .config("spark.driver.memory", "512m")
+        .getOrCreate()
+    )
+    yield session
+    session.stop()
+
+
 @pytest.fixture
 def lambda_context():
     """Return a mock Lambda context with aws_request_id."""
