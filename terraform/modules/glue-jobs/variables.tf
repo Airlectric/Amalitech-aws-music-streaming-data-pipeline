@@ -47,9 +47,9 @@ variable "dynamodb_kpi_table_names" {
 
 
 variable "max_retries" {
-  description = "Maximum number of retries for Glue jobs"
+  description = "Maximum number of Glue-level retries per job. Defaults to 0 — all three jobs are idempotent and retry orchestration is handled by Step Functions."
   type        = number
-  default     = 1
+  default     = 0
 }
 
 # ── Silver ETL (Spark) ────────────────────────────────────────────────────────
