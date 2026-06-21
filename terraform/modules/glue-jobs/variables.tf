@@ -63,7 +63,7 @@ variable "silver_worker_type" {
 variable "silver_worker_count" {
   description = "Number of workers for Silver ETL; treated as the maximum when enable_auto_scaling is true"
   type        = number
-  default     = 2
+  default     = 10
 }
 
 variable "silver_timeout_minutes" {
@@ -83,7 +83,7 @@ variable "gold_worker_type" {
 variable "gold_worker_count" {
   description = "Number of workers for Gold ETL; treated as the maximum when enable_auto_scaling is true"
   type        = number
-  default     = 2
+  default     = 10
 }
 
 variable "gold_timeout_minutes" {
@@ -105,5 +105,5 @@ variable "ddb_timeout_minutes" {
 variable "enable_auto_scaling" {
   description = "Enable Glue auto-scaling for the Silver and Gold Spark jobs. When true, *_worker_count is used as the maximum number of workers."
   type        = bool
-  default     = false
+  default     = true
 }
