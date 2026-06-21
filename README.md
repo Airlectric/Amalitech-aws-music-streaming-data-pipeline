@@ -209,6 +209,9 @@ the validator does not need to call Glue before deciding whether a newly uploade
 ### Why standard Step Functions vs Express?
 Standard workflows are used because the pipeline runs for minutes (Glue jobs take time) and needs exactly-once execution semantics. Express workflows would be cheaper for high-volume short executions but don't guarantee exactly-once.
 
+### Why DynamoDB on-demand instead of provisioned capacity?
+The pipeline writes ~462 DynamoDB items per daily run (≈ 114 genre KPIs + 342 top-song rankings + 5 top-genre rankings + 1 DQ report) in a single burst with `BatchWriteItem`. On-demand billing absorbs the burst instantly with no warm-up period. The daily write cost at current volume is under $0.001. Provisioned capacity + auto-scaling is only cheaper at steady, predictable multi-million-WCU-per-day loads. Given that writes happen once per day and read traffic is low-frequency application lookups against small result sets (≤ 5 items per query), on-demand is the correct billing model for this workload and should remain so until daily write volume exceeds several million items or the application read throughput reaches tens of thousands of requests per second. See runbook §8 for the switch-over criteria.
+
 ### Medallion architecture benefits
 - **Bronze** preserves the original data immutably for reprocessing
 - **Silver** provides a clean, analytics-ready layer

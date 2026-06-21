@@ -449,23 +449,84 @@ Record these in your team's runbook supplement (do not commit to git):
 All three KPI tables use **PAY_PER_REQUEST** (on-demand) billing — there is no
 provisioned capacity to tune, and DynamoDB scales automatically for burst writes.
 
+### Write throughput estimate
+
+`ddb_etl` runs once per day and loads data with boto3's `batch_writer()`, which
+groups `put_item` calls into `BatchWriteItem` API requests of up to 25 items each.
+All items are small (< 300 bytes each), so every write consumes exactly **1 WCU**.
+
+| Table | Items / day (sample data) | Basis |
+|---|---|---|
+| `genre-kpis-daily` | ~114 | one row per genre |
+| `top-songs-by-genre-daily` | ~342 | top 3 songs × ~114 genres |
+| `top-genres-daily` | 5 | top 5 genres fixed |
+| `dq-reports` | 1 | one DQ report per pipeline run |
+
+Total: ~462 WCUs per daily run. At on-demand pricing ($1.25 / million write
+request units), the write cost is **less than $0.001 per day** at current volume.
+Even at 1,000× scale (dozens of genres × large catalogues), the daily write
+total stays well below on-demand's break-even point versus provisioned capacity.
+
+### Read access patterns
+
+Application reads are served via DynamoDB `GetItem` or `Query`:
+
+| Table | Access pattern | DDB behaviour |
+|---|---|---|
+| `genre-kpis-daily` | `Query` on `genre` (PK), optionally filtered by `date` | Reads a single logical partition — scales linearly |
+| `top-songs-by-genre-daily` | `Query` on `genre_date` (PK) | One API call returns all 3 ranked songs for a day |
+| `top-genres-daily` | `Query` on `date` (PK) | One API call returns all 5 ranked genres |
+
+All three queries hit single partitions and return O(1)–O(N) items where N ≤ 5.
+There is no scan involved; read amplification is minimal.
+
 ### Hot-partition risk
 
 The `{env}-genre-kpis-daily` table is keyed on `genre` (PK) + `date` (SK).
-Genres such as "pop" or "rock" may accumulate far more items and writes than long-tail
-genres. Under on-demand mode, DynamoDB manages this automatically up to the account
+Genres such as "pop" or "rock" will receive more writes than long-tail genres.
+Under on-demand mode, DynamoDB manages this automatically up to the account
 limit (40,000 WCU/s default). If write throttles appear in CloudWatch
 (`AWS/DynamoDB / SystemErrors`), request a limit increase via AWS Support.
 
+### CloudWatch signals to watch
+
+| Metric | Namespace | Concern |
+|---|---|---|
+| `SystemErrors` | `AWS/DynamoDB` | Throttling or internal DDB errors |
+| `ConsumedWriteCapacityUnits` | `AWS/DynamoDB` | Actual write load vs account limit |
+| `ConsumedReadCapacityUnits` | `AWS/DynamoDB` | Read load from application traffic |
+| `SuccessfulRequestLatency` | `AWS/DynamoDB` | P99 write latency; > 50 ms consistently → investigate |
+
+Add a CloudWatch alarm on `SystemErrors > 0` for each KPI table to get notified
+of throttling before it affects the pipeline.
+
+### When to switch to provisioned capacity
+
+Remain on on-demand as long as:
+- Daily write volume is < 10 million WCUs, **or**
+- Read traffic is bursty or unpredictable (on-demand absorbs spikes without warm-up).
+
+Switch to **provisioned + auto-scaling** only when:
+1. Monthly on-demand cost exceeds the provisioned equivalent (on-demand costs ~7× more
+   per WCU than provisioned at steady state), **and**
+2. The read/write rate is stable enough to set meaningful auto-scaling targets.
+
+At the current once-per-day batch write pattern with small items, this threshold is
+not reached until the dataset contains **millions of genres** or the application is
+serving tens of thousands of reads per second.
+
 ### TTL
 
-- `genre-kpis-daily`: items expire after **90 days**
-- `top-songs-by-genre-daily`: items expire after **365 days**
-- `top-genres-daily`: items expire after **365 days**
-- `dq-reports`: items expire after **30 days**
+| Table | Retention |
+|---|---|
+| `genre-kpis-daily` | 90 days |
+| `top-songs-by-genre-daily` | 365 days |
+| `top-genres-daily` | 365 days |
+| `dq-reports` | 30 days |
 
 TTL deletes are eventually consistent and free. Do not rely on TTL for exact-second
-expiry; use it for background pruning only.
+expiry; use it for background pruning only. The `expires_at` attribute is set by
+`ddb_etl.py` at write time as `unix_timestamp + ttl_days × 86400`.
 
 ### Write sharding (future)
 
