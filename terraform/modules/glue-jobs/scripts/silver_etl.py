@@ -7,9 +7,9 @@ from pyspark.sql.types import IntegerType, LongType, StringType, StructField, St
 
 STREAMS_SCHEMA = StructType(
     [
-        StructField("user_id", IntegerType(), False),
-        StructField("track_id", StringType(), False),
-        StructField("listen_time", StringType(), False),
+        StructField("user_id", IntegerType(), True),
+        StructField("track_id", StringType(), True),
+        StructField("listen_time", StringType(), True),
     ]
 )
 
