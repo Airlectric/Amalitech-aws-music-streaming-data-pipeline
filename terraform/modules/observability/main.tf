@@ -14,8 +14,10 @@ resource "aws_cloudwatch_metric_alarm" "step_functions_failed" {
   period              = "300"
   statistic           = "Sum"
   threshold           = "0"
+  treat_missing_data  = "notBreaching"
   alarm_description   = "Step Functions execution failures"
   alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
 
   dimensions = {
     StateMachineArn = var.step_functions_state_machine_arn
@@ -35,8 +37,10 @@ resource "aws_cloudwatch_metric_alarm" "glue_job_failed" {
   period              = "300"
   statistic           = "Sum"
   threshold           = "0"
+  treat_missing_data  = "notBreaching"
   alarm_description   = "Glue job ${each.value} failed"
   alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
 
   dimensions = {
     JobName = each.value
@@ -56,8 +60,10 @@ resource "aws_cloudwatch_metric_alarm" "lambda_error" {
   period              = "300"
   statistic           = "Sum"
   threshold           = "0"
+  treat_missing_data  = "notBreaching"
   alarm_description   = "Lambda function ${each.value} errors"
   alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
 
   dimensions = {
     FunctionName = each.value
@@ -77,6 +83,7 @@ resource "aws_cloudwatch_metric_alarm" "eventbridge_no_invocations" {
   threshold           = "1"
   alarm_description   = "No EventBridge invocations in the last 24 hours"
   alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
 
   dimensions = {
     RuleName = var.eventbridge_rule_name
@@ -127,6 +134,7 @@ resource "aws_cloudwatch_metric_alarm" "pipeline_sla" {
   treat_missing_data  = "breaching"
   alarm_description   = "No successful pipeline execution in the last 25 hours — downstream KPIs may be stale."
   alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
 
   dimensions = {
     StateMachineArn = var.step_functions_state_machine_arn
@@ -152,6 +160,7 @@ resource "aws_cloudwatch_metric_alarm" "dq_drop_rate" {
   treat_missing_data  = "notBreaching"
   alarm_description   = "Silver ETL dropped more than 10 % of raw rows — check reference-data coverage and upstream CSV quality."
   alarm_actions       = [var.sns_topic_arn]
+  ok_actions          = [var.sns_topic_arn]
 
   dimensions = {
     Job = "silver_etl"
