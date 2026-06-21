@@ -258,6 +258,23 @@ resource "aws_iam_role_policy" "glue_ddb_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "glue_ddb_cloudwatch" {
+  name = "${var.environment}-glue-ddb-cloudwatch"
+  role = aws_iam_role.glue_ddb.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudwatch:PutMetricData"]
+      Resource = ["*"]
+      Condition = {
+        StringEquals = { "cloudwatch:namespace" = "MusicPipeline/DQ" }
+      }
+    }]
+  })
+}
+
 # ────────────────────────────────────────────
 # LAMBDA VALIDATOR ROLE
 # ────────────────────────────────────────────
