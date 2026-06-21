@@ -314,9 +314,21 @@ resource "aws_iam_role" "lambda_validator" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-validator" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_validator_basic" {
-  role       = aws_iam_role.lambda_validator.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "lambda_validator_logs" {
+  name = "${var.environment}-lambda-validator-logs"
+  role = aws_iam_role.lambda_validator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-event-validator:*"]
+    }]
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_validator_xray" {
@@ -422,9 +434,21 @@ resource "aws_iam_role" "lambda_quarantiner" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-quarantiner" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_quarantiner_basic" {
-  role       = aws_iam_role.lambda_quarantiner.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "lambda_quarantiner_logs" {
+  name = "${var.environment}-lambda-quarantiner-logs"
+  role = aws_iam_role.lambda_quarantiner.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-quarantine-handler:*"]
+    }]
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_quarantiner_xray" {
@@ -491,9 +515,21 @@ resource "aws_iam_role" "lambda_archiver" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-archiver" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_archiver_basic" {
-  role       = aws_iam_role.lambda_archiver.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "lambda_archiver_logs" {
+  name = "${var.environment}-lambda-archiver-logs"
+  role = aws_iam_role.lambda_archiver.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-stream-archiver:*"]
+    }]
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_archiver_xray" {
@@ -570,9 +606,21 @@ resource "aws_iam_role" "lambda_event_router" {
   tags = merge(local.common_tags, { Name = "${var.environment}-lambda-event-router" })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_event_router_basic" {
-  role       = aws_iam_role.lambda_event_router.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "lambda_event_router_logs" {
+  name = "${var.environment}-lambda-event-router-logs"
+  role = aws_iam_role.lambda_event_router.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Resource = ["arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/lambda/${var.environment}-event-router:*"]
+    }]
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_event_router_xray" {
