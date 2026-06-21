@@ -8,7 +8,7 @@ locals {
   keys = {
     s3-data-lake = {
       description        = "KMS CMK for S3 data lake encryption"
-      service_principals = ["s3.amazonaws.com"]
+      service_principals = ["s3.amazonaws.com", "cloudtrail.amazonaws.com"]
       role_arns          = var.s3_data_lake_bucket_arns
       alias_name         = "${var.environment}/s3-data-lake"
     }
