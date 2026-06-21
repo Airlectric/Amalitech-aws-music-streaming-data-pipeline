@@ -98,6 +98,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, static_checks]
     if: github.event_name != 'workflow_dispatch' || inputs.terraform_action != 'destroy'
+    env:
+      TF_VAR_sns_alert_emails: ${{ secrets.SNS_ALERT_EMAILS }}
     defaults:
       run:
         working-directory: terraform/envs/dev
@@ -131,8 +133,7 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform plan -no-color -out=tfplan \
-            -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}" \
-            -var="sns_alert_emails=${{ secrets.SNS_ALERT_EMAILS }}"
+            -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}"
           terraform show -no-color tfplan > tfplan.txt
 
       - name: Upload Plan Artifact
@@ -174,6 +175,8 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
       (github.event_name == 'workflow_dispatch' && inputs.terraform_action == 'apply' && github.ref == 'refs/heads/develop')
     environment: dev
+    env:
+      TF_VAR_sns_alert_emails: ${{ secrets.SNS_ALERT_EMAILS }}
     defaults:
       run:
         working-directory: terraform/envs/dev
@@ -200,17 +203,14 @@ jobs:
 
       - name: Import pre-existing Lambda log groups
         run: |
-          VAR="-var=bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }} -var=sns_alert_emails=${{ secrets.SNS_ALERT_EMAILS }}"
+          VAR="-var=bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}"
           terraform import $VAR 'module.lambda_functions.aws_cloudwatch_log_group.event_validator' '/aws/lambda/music-dev-event-validator' || true
           terraform import $VAR 'module.lambda_functions.aws_cloudwatch_log_group.stream_archiver' '/aws/lambda/music-dev-stream-archiver' || true
           terraform import $VAR 'module.lambda_functions.aws_cloudwatch_log_group.event_router' '/aws/lambda/music-dev-event-router' || true
           terraform import $VAR 'module.lambda_functions.aws_cloudwatch_log_group.quarantine_handler' '/aws/lambda/music-dev-quarantine-handler' || true
 
       - name: Terraform Plan for Apply
-        run: |
-          terraform plan -no-color -out=tfplan \
-            -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}" \
-            -var="sns_alert_emails=${{ secrets.SNS_ALERT_EMAILS }}"
+        run: terraform plan -no-color -out=tfplan -var="bucket_suffix=${{ secrets.AWS_ACCOUNT_ID }}"
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
