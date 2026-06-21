@@ -36,7 +36,7 @@ resource "aws_lambda_function" "event_validator" {
   # ENI startup and endpoint routing delays during the validation step.
 
   tracing_config {
-    mode = "PassThrough"
+    mode = "Active"
   }
 
   environment {
@@ -72,7 +72,7 @@ resource "aws_lambda_function" "quarantine_handler" {
   # ENI startup and endpoint routing delays during the remediation step.
 
   tracing_config {
-    mode = "PassThrough"
+    mode = "Active"
   }
 
   environment {
@@ -102,7 +102,7 @@ resource "aws_lambda_function" "stream_archiver" {
   # ENI startup and endpoint routing delays during the archive step.
 
   tracing_config {
-    mode = "PassThrough"
+    mode = "Active"
   }
 
   environment {
@@ -129,7 +129,7 @@ resource "aws_lambda_function" "event_router" {
   memory_size      = 128
 
   tracing_config {
-    mode = "PassThrough"
+    mode = "Active"
   }
 
   environment {

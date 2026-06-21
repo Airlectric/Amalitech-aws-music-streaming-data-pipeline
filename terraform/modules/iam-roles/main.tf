@@ -298,6 +298,11 @@ resource "aws_iam_role_policy_attachment" "lambda_validator_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_validator_xray" {
+  role       = aws_iam_role.lambda_validator.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 
 resource "aws_iam_role_policy" "lambda_validator_s3" {
   name = "${var.environment}-lambda-validator-s3"
@@ -401,6 +406,11 @@ resource "aws_iam_role_policy_attachment" "lambda_quarantiner_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_quarantiner_xray" {
+  role       = aws_iam_role.lambda_quarantiner.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 
 resource "aws_iam_role_policy" "lambda_quarantiner_s3" {
   name = "${var.environment}-lambda-quarantiner-s3"
@@ -463,6 +473,11 @@ resource "aws_iam_role" "lambda_archiver" {
 resource "aws_iam_role_policy_attachment" "lambda_archiver_basic" {
   role       = aws_iam_role.lambda_archiver.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_archiver_xray" {
+  role       = aws_iam_role.lambda_archiver.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 
@@ -532,6 +547,11 @@ resource "aws_iam_role" "lambda_event_router" {
 resource "aws_iam_role_policy_attachment" "lambda_event_router_basic" {
   role       = aws_iam_role.lambda_event_router.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_event_router_xray" {
+  role       = aws_iam_role.lambda_event_router.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 resource "aws_iam_role_policy" "lambda_event_router_sfn" {

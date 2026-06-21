@@ -131,11 +131,17 @@ def _extract_run_date(stream_key):
 
 
 def _emit_dq_metrics(cw_client, run_date, counts, drop_rate_pct):
-    """Push DQ gate counts and drop rate to CloudWatch (MusicPipeline/DQ)."""
-    dims = [{"Name": "Job", "Value": "silver_etl"}, {"Name": "RunDate", "Value": run_date}]
+    """Push DQ gate counts and drop rate to CloudWatch (MusicPipeline/DQ).
+
+    Per-gate counts carry both Job and RunDate dimensions for trend queries.
+    DropRatePct uses only the Job dimension so a stable CloudWatch alarm can
+    target it without a new dimension value appearing for every run date.
+    """
+    full_dims = [{"Name": "Job", "Value": "silver_etl"}, {"Name": "RunDate", "Value": run_date}]
+    job_dim = [{"Name": "Job", "Value": "silver_etl"}]
     metric_data = [
-        *[{"MetricName": k, "Value": float(v), "Unit": "Count", "Dimensions": dims} for k, v in counts.items()],
-        {"MetricName": "DropRatePct", "Value": drop_rate_pct, "Unit": "Percent", "Dimensions": dims},
+        *[{"MetricName": k, "Value": float(v), "Unit": "Count", "Dimensions": full_dims} for k, v in counts.items()],
+        {"MetricName": "DropRatePct", "Value": drop_rate_pct, "Unit": "Percent", "Dimensions": job_dim},
     ]
     for i in range(0, len(metric_data), 20):
         cw_client.put_metric_data(Namespace=_CW_NAMESPACE, MetricData=metric_data[i : i + 20])
