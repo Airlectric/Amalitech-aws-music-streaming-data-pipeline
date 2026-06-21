@@ -220,6 +220,26 @@ The pipeline writes ~462 DynamoDB items per daily run (≈ 114 genre KPIs + 342 
 
 ---
 
+## Production hardening
+
+The pipeline has been through a full production-readiness audit. The following hardening work was applied on top of the initial implementation:
+
+| Area | What was hardened |
+|---|---|
+| **Correctness** | Pure-function ETL extraction (testable without Glue); Silver DQ gate counts + drop-rate circuit breaker; DDB poison-partition guard + write reconciliation; Gold partition-direct read with absent/empty guards |
+| **Observability** | CloudWatch alarms: DLQ depth, 25-hour SLA breach, Silver DQ drop-rate; Lambda X-Ray active tracing; lineage columns (`ingested_at`, `source_execution_id`) stamped from Step Functions context end-to-end |
+| **Testing** | 35 unit tests covering Lambda handlers and all Glue ETL pure functions; PySpark tests with session-scoped `SparkSession` via `chispa` |
+| **Performance** | `coalesce(1)` before every partitioned write (eliminates hundreds of tiny Parquet files per daily partition); per-job Glue worker type, count, and timeout variables; `enable_auto_scaling` flag |
+| **Security** | SFN X-Ray policy completed with sampling actions; archiver S3 `ListBucket` scoped to `streams/landing_date=*` prefix; DDB ETL Gold reader scoped to three specific `date=*` partition paths |
+
+**Known limitations and future work** are documented in the audit:
+→ [`docs/production-readiness-audit.md`](docs/production-readiness-audit.md)
+
+**Operational procedures** (DLQ replay, backfill, schema evolution, DR, capacity planning):
+→ [`docs/runbooks.md`](docs/runbooks.md)
+
+---
+
 ## Outputs
 
 After `terraform apply`, the following outputs are available:
