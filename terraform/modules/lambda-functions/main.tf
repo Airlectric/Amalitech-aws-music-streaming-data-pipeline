@@ -179,6 +179,35 @@ resource "aws_sqs_queue" "pipeline_dlq" {
 }
 
 # Allow the EventBridge rule to deliver failed events to the DLQ (target dead-letter).
+# ────────────────────────────────────────────
+# LAMBDA CLOUDWATCH LOG GROUPS
+# Explicit log groups with bounded retention so Lambda does not auto-create
+# groups with infinite retention (unbounded cost).
+# ────────────────────────────────────────────
+resource "aws_cloudwatch_log_group" "event_validator" {
+  name              = "/aws/lambda/${var.environment}-event-validator"
+  retention_in_days = 30
+  tags              = merge(local.common_tags, { Name = "${var.environment}-event-validator-logs" })
+}
+
+resource "aws_cloudwatch_log_group" "quarantine_handler" {
+  name              = "/aws/lambda/${var.environment}-quarantine-handler"
+  retention_in_days = 30
+  tags              = merge(local.common_tags, { Name = "${var.environment}-quarantine-handler-logs" })
+}
+
+resource "aws_cloudwatch_log_group" "stream_archiver" {
+  name              = "/aws/lambda/${var.environment}-stream-archiver"
+  retention_in_days = 30
+  tags              = merge(local.common_tags, { Name = "${var.environment}-stream-archiver-logs" })
+}
+
+resource "aws_cloudwatch_log_group" "event_router" {
+  name              = "/aws/lambda/${var.environment}-event-router"
+  retention_in_days = 30
+  tags              = merge(local.common_tags, { Name = "${var.environment}-event-router-logs" })
+}
+
 resource "aws_sqs_queue_policy" "pipeline_dlq" {
   queue_url = aws_sqs_queue.pipeline_dlq.id
 
