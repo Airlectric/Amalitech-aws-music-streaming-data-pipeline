@@ -119,7 +119,7 @@ def _batch_write_with_retry(ddb_resource, table_name, items, max_attempts=5):
         written += len(batch) - len(unprocessed)
         pending = unprocessed + remaining
 
-        if pending:
+        if unprocessed:
             attempt += 1
             time.sleep(2 ** attempt * 0.1)  # exponential back-off: 0.2s, 0.4s, 0.8s …
 
