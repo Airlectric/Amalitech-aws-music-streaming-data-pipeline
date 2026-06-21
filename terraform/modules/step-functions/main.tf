@@ -56,9 +56,11 @@ locals {
         Parameters = {
           JobName = var.glue_silver_job_name
           Arguments = {
-            "--bronze_bucket.$" = "$.bucket"
-            "--stream_key.$"    = "$.key"
-            "--silver_path"     = "s3://${var.silver_bucket_id}"
+            "--bronze_bucket.$"        = "$.bucket"
+            "--stream_key.$"           = "$.key"
+            "--silver_path"            = "s3://${var.silver_bucket_id}"
+            "--execution_start_time.$" = "$$.Execution.StartTime"
+            "--execution_id.$"         = "$$.Execution.Id"
           }
         }
         Next = "RunGoldETL"
@@ -77,9 +79,11 @@ locals {
         Parameters = {
           JobName = var.glue_gold_job_name
           Arguments = {
-            "--silver_path" = "s3://${var.silver_bucket_id}"
-            "--gold_path"   = "s3://${var.gold_bucket_id}"
-            "--run_date.$"  = "$.run_date"
+            "--silver_path"            = "s3://${var.silver_bucket_id}"
+            "--gold_path"              = "s3://${var.gold_bucket_id}"
+            "--run_date.$"             = "$.run_date"
+            "--execution_start_time.$" = "$$.Execution.StartTime"
+            "--execution_id.$"         = "$$.Execution.Id"
           }
         }
         Next = "RunDDBETL"
@@ -98,11 +102,13 @@ locals {
         Parameters = {
           JobName = var.glue_ddb_job_name
           Arguments = {
-            "--gold_path"        = "s3://${var.gold_bucket_id}"
-            "--table_genre_kpis" = var.genre_kpis_table_name
-            "--table_top_songs"  = var.top_songs_table_name
-            "--table_top_genres" = var.top_genres_table_name
-            "--run_date.$"       = "$.run_date"
+            "--gold_path"              = "s3://${var.gold_bucket_id}"
+            "--table_genre_kpis"       = var.genre_kpis_table_name
+            "--table_top_songs"        = var.top_songs_table_name
+            "--table_top_genres"       = var.top_genres_table_name
+            "--run_date.$"             = "$.run_date"
+            "--execution_start_time.$" = "$$.Execution.StartTime"
+            "--execution_id.$"         = "$$.Execution.Id"
           }
         }
         Next = "ArchiveFiles"

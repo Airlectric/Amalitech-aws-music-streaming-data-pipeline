@@ -6,6 +6,14 @@ from decimal import Decimal
 import boto3
 import pyarrow.parquet as pq
 
+
+def _get_arg_default(key, default):
+    """Return an optional Glue job arg value, falling back to default if absent."""
+    for i, token in enumerate(sys.argv):
+        if token == f"--{key}" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return default
+
 _CW_NAMESPACE = "MusicPipeline/DQ"
 
 
@@ -94,6 +102,8 @@ def main():
     table_top_songs = args["table_top_songs"]
     table_top_genres = args["table_top_genres"]
     run_date = args["run_date"]
+    execution_start_time = _get_arg_default("execution_start_time", "unknown")
+    execution_id = _get_arg_default("execution_id", "unknown")
 
     s3_client = boto3.client("s3")
     ddb = boto3.resource("dynamodb")
@@ -117,6 +127,8 @@ def main():
                     "unique_listeners": int(row["unique_listeners"]),
                     "total_listen_seconds": to_decimal(row["total_listen_seconds"]),
                     "avg_listen_seconds_per_user": to_decimal(row["avg_listen_seconds_per_user"]),
+                    "ingested_at": execution_start_time,
+                    "source_execution_id": execution_id,
                 }
             )
             genre_kpis_written += 1
@@ -138,6 +150,8 @@ def main():
                     "track_id": row["track_id"],
                     "track_name": row["track_name"],
                     "play_count": int(row["play_count"]),
+                    "ingested_at": execution_start_time,
+                    "source_execution_id": execution_id,
                 }
             )
             top_songs_written += 1
@@ -158,6 +172,8 @@ def main():
                     "rank": int(row["rank"]),
                     "genre": row["genre"],
                     "listen_count": int(row["listen_count"]),
+                    "ingested_at": execution_start_time,
+                    "source_execution_id": execution_id,
                 }
             )
             top_genres_written += 1

@@ -4,6 +4,14 @@ from pyspark.sql import SparkSession, Window
 from pyspark.sql import functions as F
 
 
+def _get_arg_default(key, default):
+    """Return an optional Glue job arg value, falling back to default if absent."""
+    for i, token in enumerate(sys.argv):
+        if token == f"--{key}" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return default
+
+
 def compute_genre_kpis(df):
     """Aggregate listen counts, unique listeners, and listening time by genre per day."""
     return (
@@ -57,6 +65,8 @@ def main():
     silver_path = args["silver_path"].rstrip("/")
     gold_path = args["gold_path"].rstrip("/")
     run_date = args["run_date"]
+    execution_start_time = _get_arg_default("execution_start_time", "unknown")
+    execution_id = _get_arg_default("execution_id", "unknown")
 
     spark = SparkSession.builder.appName("GoldETL").getOrCreate()
     spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
@@ -65,9 +75,21 @@ def main():
         F.col("event_date") == F.to_date(F.lit(run_date))
     )
 
-    genre_kpis_df = compute_genre_kpis(silver_df)
-    top_songs_df = compute_top_songs(silver_df)
-    top_genres_df = compute_top_genres(silver_df)
+    genre_kpis_df = (
+        compute_genre_kpis(silver_df)
+        .withColumn("ingested_at", F.lit(execution_start_time))
+        .withColumn("source_execution_id", F.lit(execution_id))
+    )
+    top_songs_df = (
+        compute_top_songs(silver_df)
+        .withColumn("ingested_at", F.lit(execution_start_time))
+        .withColumn("source_execution_id", F.lit(execution_id))
+    )
+    top_genres_df = (
+        compute_top_genres(silver_df)
+        .withColumn("ingested_at", F.lit(execution_start_time))
+        .withColumn("source_execution_id", F.lit(execution_id))
+    )
 
     genre_kpis_df.write.mode("overwrite").partitionBy("date").parquet(
         f"{gold_path}/genre_kpis_daily"

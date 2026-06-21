@@ -160,6 +160,8 @@ def main():
     stream_key = args["stream_key"]
     silver_path = args["silver_path"].rstrip("/")
     max_drop_rate = float(_get_arg_default("max_drop_rate", "0.10"))
+    execution_start_time = _get_arg_default("execution_start_time", "unknown")
+    execution_id = _get_arg_default("execution_id", "unknown")
     run_date = _extract_run_date(stream_key)
 
     stream_path = f"s3://{bronze_bucket}/{stream_key}"
@@ -242,6 +244,8 @@ def main():
         .withColumn("genre", F.lower(F.trim(F.col("track_genre"))))
         .withColumn("listen_seconds", F.col("duration_ms") / F.lit(1000.0))
         .withColumn("source_file", F.lit(stream_path))
+        .withColumn("ingested_at", F.lit(execution_start_time))
+        .withColumn("source_execution_id", F.lit(execution_id))
         .select(
             "user_id",
             "track_id",
@@ -256,6 +260,8 @@ def main():
             "listen_seconds",
             "user_country",
             "source_file",
+            "ingested_at",
+            "source_execution_id",
         )
     )
 
