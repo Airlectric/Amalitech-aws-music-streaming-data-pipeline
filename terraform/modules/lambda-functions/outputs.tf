@@ -47,3 +47,8 @@ output "pipeline_dlq_name" {
   description = "Name of the pipeline dead-letter queue (used as CloudWatch SQS dimension)"
   value       = aws_sqs_queue.pipeline_dlq.name
 }
+
+output "pipeline_dlq_url" {
+  description = "URL of the pipeline dead-letter queue (used by replay_dlq.py)"
+  value       = aws_sqs_queue.pipeline_dlq.url
+}

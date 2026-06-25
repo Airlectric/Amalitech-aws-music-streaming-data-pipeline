@@ -153,6 +153,11 @@ output "lambda_quarantine_handler_arn" {
   value       = module.lambda_functions.quarantine_handler_arn
 }
 
+output "pipeline_dlq_url" {
+  description = "URL of the pipeline dead-letter queue (pass to replay_dlq.py --dlq-url)"
+  value       = module.lambda_functions.pipeline_dlq_url
+}
+
 output "sns_topic_arn" {
   description = "ARN of the SNS pipeline alert topic"
   value       = aws_sns_topic.alerts.arn
