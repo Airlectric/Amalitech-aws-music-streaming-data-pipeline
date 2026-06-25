@@ -147,3 +147,11 @@ module "iam_roles" {
   quarantine_bucket_arn   = module.s3_data_lake.quarantine_bucket_arn
   sns_alert_topic_arn     = aws_sns_topic.alerts.arn
 }
+
+module "dlq_replayer" {
+  source      = "../../modules/dlq-replayer"
+  environment = var.environment
+
+  dlq_arn           = module.lambda_functions.pipeline_dlq_arn
+  state_machine_arn = module.step_functions.state_machine_arn
+}
