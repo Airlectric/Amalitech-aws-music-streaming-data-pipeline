@@ -28,6 +28,18 @@ resource "aws_iam_policy" "metabase" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # ── Athena: catalog discovery (required by the JDBC driver on connect) ──
+      {
+        Sid    = "AthenaCatalogDiscovery"
+        Effect = "Allow"
+        Action = [
+          "athena:ListDataCatalogs",
+          "athena:ListDatabases",
+          "athena:ListTableMetadata",
+          "athena:GetTableMetadata",
+        ]
+        Resource = ["*"]
+      },
       # ── Athena: execute queries in the analytics workgroup ────────────────
       {
         Sid    = "AthenaWorkgroup"
