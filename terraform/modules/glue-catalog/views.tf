@@ -6,8 +6,9 @@
 # three gold KPI tables, hiding internal ingestion metadata
 # (ingested_at, source_execution_id, genre_date).
 #
-# Column types use the Presto type system (varchar, bigint, double, integer)
-# because Athena views are compiled and stored by the Presto/Trino engine.
+# The Presto JSON inside view_original_text uses Presto types (varchar, bigint,
+# double, integer). The storage_descriptor.columns blocks use Hive types
+# (string, bigint, double, int) for Glue/Hive metastore compatibility.
 # ─────────────────────────────────────────────────────────────────────────────
 
 locals {
@@ -97,6 +98,13 @@ resource "aws_glue_catalog_table" "view_genre_kpis" {
   view_original_text = "/* Presto View: ${local._v_genre_kpis_encoded} */"
   view_expanded_text = "/* Presto View */"
 
+  # Required: tells Athena this is a Presto/Trino view, not a Hive view.
+  # Without this, Athena falls back to the Hive parser and throws
+  # HIVE_VIEW_TRANSLATION_ERROR on every query.
+  parameters = {
+    presto_view = "true"
+  }
+
   storage_descriptor {
     ser_de_info {
       serialization_library = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
@@ -104,11 +112,11 @@ resource "aws_glue_catalog_table" "view_genre_kpis" {
 
     columns {
       name = "genre"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "date"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "listen_count"
@@ -138,6 +146,10 @@ resource "aws_glue_catalog_table" "view_top_songs" {
   view_original_text = "/* Presto View: ${local._v_top_songs_encoded} */"
   view_expanded_text = "/* Presto View */"
 
+  parameters = {
+    presto_view = "true"
+  }
+
   storage_descriptor {
     ser_de_info {
       serialization_library = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
@@ -145,11 +157,11 @@ resource "aws_glue_catalog_table" "view_top_songs" {
 
     columns {
       name = "genre"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "date"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "rank"
@@ -157,11 +169,11 @@ resource "aws_glue_catalog_table" "view_top_songs" {
     }
     columns {
       name = "track_id"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "track_name"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "play_count"
@@ -179,6 +191,10 @@ resource "aws_glue_catalog_table" "view_top_genres" {
   view_original_text = "/* Presto View: ${local._v_top_genres_encoded} */"
   view_expanded_text = "/* Presto View */"
 
+  parameters = {
+    presto_view = "true"
+  }
+
   storage_descriptor {
     ser_de_info {
       serialization_library = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
@@ -186,7 +202,7 @@ resource "aws_glue_catalog_table" "view_top_genres" {
 
     columns {
       name = "date"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "rank"
@@ -194,7 +210,7 @@ resource "aws_glue_catalog_table" "view_top_genres" {
     }
     columns {
       name = "genre"
-      type = "varchar"
+      type = "string"
     }
     columns {
       name = "listen_count"
