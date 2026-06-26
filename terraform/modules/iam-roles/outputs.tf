@@ -91,3 +91,13 @@ output "eventbridge_role_arn" {
   description = "ARN of the EventBridge role"
   value       = aws_iam_role.eventbridge.arn
 }
+
+output "metabase_iam_user_name" {
+  description = "Name of the Metabase read-only IAM user (create access keys manually post-apply)"
+  value       = aws_iam_user.metabase.name
+}
+
+output "metabase_iam_user_arn" {
+  description = "ARN of the Metabase read-only IAM user"
+  value       = aws_iam_user.metabase.arn
+}
