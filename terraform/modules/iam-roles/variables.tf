@@ -42,3 +42,8 @@ variable "quarantine_bucket_arn" {
   type        = string
   default     = ""
 }
+
+variable "athena_workgroup_name" {
+  description = "Name of the Athena analytics workgroup (scoped in the Metabase IAM policy)"
+  type        = string
+}

@@ -146,4 +146,5 @@ module "iam_roles" {
   dynamodb_dq_table_arn   = module.dynamodb_kpi.dq_table_arn
   quarantine_bucket_arn   = module.s3_data_lake.quarantine_bucket_arn
   sns_alert_topic_arn     = aws_sns_topic.alerts.arn
+  athena_workgroup_name   = module.athena.workgroup_name
 }

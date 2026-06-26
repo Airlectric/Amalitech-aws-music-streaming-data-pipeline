@@ -172,3 +172,8 @@ output "eventbridge_role_arn" {
   description = "ARN of the EventBridge role"
   value       = module.iam_roles.eventbridge_role_arn
 }
+
+output "metabase_iam_user_name" {
+  description = "Metabase read-only IAM user — run: aws iam create-access-key --user-name <value>"
+  value       = module.iam_roles.metabase_iam_user_name
+}
