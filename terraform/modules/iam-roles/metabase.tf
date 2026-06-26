@@ -109,7 +109,7 @@ resource "aws_iam_policy" "metabase" {
           "kms:GenerateDataKey",
           "kms:DescribeKey",
         ]
-        Resource = [var.kms_key_arns["s3_data_lake"]]
+        Resource = [var.kms_key_arns["s3-data-lake"]]
       },
     ]
   })
