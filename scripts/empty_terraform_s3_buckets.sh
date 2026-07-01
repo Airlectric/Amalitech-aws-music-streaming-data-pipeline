@@ -51,14 +51,27 @@ for bucket in "${buckets[@]}"; do
     versions_json="$(
       aws s3api list-object-versions \
         --bucket "${bucket}" \
-        --max-items 1000 \
+        --max-keys 1000 \
         --region "${REGION}" \
         --output json
     )"
     delete_json="$(
       printf '%s' "${versions_json}" |
         jq -c '{
-          Objects: (((.Versions // []) + (.DeleteMarkers // [])) | map({Key, VersionId})),
+          Objects: (
+            ((.Versions // []) + (.DeleteMarkers // []))
+            | map(
+                {
+                  Key,
+                  VersionId: (
+                    if .VersionId != null and .VersionId != "null"
+                    then .VersionId
+                    else "null"
+                    end
+                  )
+                }
+              )
+          ),
           Quiet: true
         }'
     )"

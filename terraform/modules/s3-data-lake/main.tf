@@ -2,7 +2,7 @@ resource "aws_s3_bucket" "this" {
   for_each = local.bucket_name
 
   bucket        = each.value
-  force_destroy = false
+  force_destroy = true
 
   tags = merge(local.common_tags, { Name = each.key })
 }
