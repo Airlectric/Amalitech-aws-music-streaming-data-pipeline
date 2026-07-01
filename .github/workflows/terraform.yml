@@ -36,6 +36,10 @@ permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   TF_VERSION: "1.7"
   TF_ENV: "dev"
@@ -243,6 +247,19 @@ jobs:
           sed -i "s/YOUR_LOCK_TABLE_NAME/${{ secrets.P1_TF_LOCK_TABLE }}/" backend.hcl
           sed -i "s|YOUR_KMS_KEY_ARN|${{ secrets.P1_TF_STATE_KMS_KEY_ARN }}|" backend.hcl
           terraform init -backend-config=backend.hcl
+
+      - name: Stop CloudTrail logging before destroy
+        run: |
+          TRAIL_NAME="${TF_ENV}-pipeline-trail"
+          trail_arn=$(aws cloudtrail list-trails \
+            --query "Trails[?contains(Name, '${TRAIL_NAME}')].TrailARN" \
+            --output text 2>/dev/null | head -1)
+          if [ -n "${trail_arn}" ] && [ "${trail_arn}" != "None" ]; then
+            aws cloudtrail stop-logging --name "${trail_arn}" || true
+            echo "Stopped logging: ${trail_arn}"
+          else
+            echo "No trail found matching ${TRAIL_NAME}, skipping"
+          fi
 
       - name: Empty Terraform-managed S3 buckets
         run: ../../../scripts/empty_terraform_s3_buckets.sh
